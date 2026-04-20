@@ -5,6 +5,65 @@ import useStore from '../store/useStore'
 import { splitExpenses, formatCurrency } from '../utils/calc'
 import Modal from '../components/Modal'
 
+// Known charter boats: model → LOA in meters
+const BOATS = [
+  { model: 'Beneteau First 35', loa: 10.5 },
+  { model: 'Beneteau First 40', loa: 12.0 },
+  { model: 'Beneteau Oceanis 38.1', loa: 11.6 },
+  { model: 'Beneteau Oceanis 40.1', loa: 12.3 },
+  { model: 'Beneteau Oceanis 45', loa: 13.8 },
+  { model: 'Beneteau Oceanis 51.1', loa: 15.6 },
+  { model: 'Bavaria Cruiser 34', loa: 10.4 },
+  { model: 'Bavaria Cruiser 37', loa: 11.4 },
+  { model: 'Bavaria Cruiser 40', loa: 12.5 },
+  { model: 'Bavaria Cruiser 46', loa: 14.1 },
+  { model: 'Bavaria Cruiser 51', loa: 15.6 },
+  { model: 'Jeanneau Sun Odyssey 319', loa: 9.8 },
+  { model: 'Jeanneau Sun Odyssey 349', loa: 10.6 },
+  { model: 'Jeanneau Sun Odyssey 379', loa: 11.5 },
+  { model: 'Jeanneau Sun Odyssey 410', loa: 12.5 },
+  { model: 'Jeanneau Sun Odyssey 440', loa: 13.5 },
+  { model: 'Jeanneau Sun Odyssey 519', loa: 15.8 },
+  { model: 'Elan 35', loa: 10.5 },
+  { model: 'Elan 40', loa: 12.1 },
+  { model: 'Elan 45', loa: 13.7 },
+  { model: 'Elan 50', loa: 15.2 },
+  { model: 'Hanse 348', loa: 10.6 },
+  { model: 'Hanse 388', loa: 11.9 },
+  { model: 'Hanse 418', loa: 12.8 },
+  { model: 'Hanse 458', loa: 14.0 },
+  { model: 'Dufour 390 GL', loa: 11.8 },
+  { model: 'Dufour 430 GL', loa: 13.1 },
+  { model: 'Dufour 460 GL', loa: 14.2 },
+  { model: 'Salona 38', loa: 11.6 },
+  { model: 'Salona 40', loa: 12.4 },
+  { model: 'Salona 44', loa: 13.4 },
+  { model: 'Salona 48', loa: 14.6 },
+  { model: 'X-Yachts X4.0', loa: 12.0 },
+  { model: 'Sunbeam 42', loa: 12.9 },
+]
+
+const FT_TO_M = 0.3048
+
+function loaFromModel(model) {
+  if (!model) return ''
+  const known = BOATS.find((b) => b.model.toLowerCase() === model.toLowerCase())
+  if (known) return known.loa.toString()
+  // extract trailing number — interpret as feet if < 80, else as dm (/10)
+  const match = model.match(/(\d+(?:\.\d+)?)$/)
+  if (!match) return ''
+  const num = parseFloat(match[1])
+  if (num < 80) return (num * FT_TO_M).toFixed(1)
+  if (num >= 100) return (num / 10).toFixed(1) // e.g. 349 → 34.9/10 → handled above
+  return ''
+}
+
+const HR_PORTS = [
+  'Split','Trogir','Šibenik','Zadar','Biograd na Moru','Murter','Primošten',
+  'Hvar','Korčula','Dubrovnik','Omiš','Makarska','Vis','Brač (Supetar)',
+  'Rovinj','Pula','Mali Lošinj','Krk','Rab','Skradin','Tribunj',
+]
+
 function NewVoyageModal({ onClose }) {
   const addVoyage = useStore((s) => s.addVoyage)
   const navigate = useNavigate()
@@ -13,20 +72,30 @@ function NewVoyageModal({ onClose }) {
     startDate: '',
     endDate: '',
     boatName: '',
+    boatModel: '',
     boatLoa: '',
     homePort: '',
     charterCost: '',
     currency: 'EUR',
     notes: '',
   })
+  const [loaAuto, setLoaAuto] = useState(false)
 
   const f = (k) => (e) => setForm((p) => ({ ...p, [k]: e.target.value }))
+
+  const handleModelChange = (e) => {
+    const model = e.target.value
+    const loa = loaFromModel(model)
+    setForm((p) => ({ ...p, boatModel: model, boatLoa: loa || p.boatLoa }))
+    setLoaAuto(!!loa)
+  }
 
   const submit = (e) => {
     e.preventDefault()
     if (!form.name) return
     addVoyage({
       ...form,
+      boatName: form.boatName || form.boatModel,
       boatLoa: parseFloat(form.boatLoa) || 12,
       charterCost: parseFloat(form.charterCost) || 0,
       crew: [],
@@ -35,6 +104,10 @@ function NewVoyageModal({ onClose }) {
     onClose()
     navigate('/voyage')
   }
+
+  const modelSuggestions = form.boatModel.length >= 2
+    ? BOATS.filter((b) => b.model.toLowerCase().includes(form.boatModel.toLowerCase())).slice(0, 5)
+    : []
 
   return (
     <form onSubmit={submit} className="space-y-3">
@@ -52,20 +125,74 @@ function NewVoyageModal({ onClose }) {
           <input className="input" type="date" value={form.endDate} onChange={f('endDate')} />
         </div>
       </div>
-      <div className="grid grid-cols-2 gap-3">
-        <div>
-          <label className="label">Název lodě</label>
-          <input className="input" placeholder="Beneteau 45" value={form.boatName} onChange={f('boatName')} />
-        </div>
-        <div>
-          <label className="label">LOA (m)</label>
-          <input className="input" type="number" placeholder="12" value={form.boatLoa} onChange={f('boatLoa')} />
-        </div>
+
+      {/* Boat name (custom name) */}
+      <div>
+        <label className="label">Jméno lodě</label>
+        <input className="input" placeholder="Neptun, Laguna II..." value={form.boatName} onChange={f('boatName')} />
       </div>
+
+      {/* Boat model with autocomplete */}
+      <div className="relative">
+        <label className="label">Typ / model lodě</label>
+        <input
+          className="input"
+          placeholder="First 35, Bavaria 40, Oceanis 45..."
+          value={form.boatModel}
+          onChange={handleModelChange}
+          autoComplete="off"
+        />
+        {modelSuggestions.length > 0 && (
+          <div className="absolute z-10 left-0 right-0 bg-white border border-slate-200 rounded-xl shadow-lg mt-1 overflow-hidden">
+            {modelSuggestions.map((b) => (
+              <button
+                key={b.model}
+                type="button"
+                onClick={() => {
+                  setForm((p) => ({ ...p, boatModel: b.model, boatLoa: b.loa.toString() }))
+                  setLoaAuto(true)
+                }}
+                className="w-full flex items-center justify-between px-3 py-2.5 text-sm hover:bg-slate-50 border-b border-slate-100 last:border-0"
+              >
+                <span>{b.model}</span>
+                <span className="text-xs text-slate-400">{b.loa} m</span>
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* LOA auto or manual */}
+      <div>
+        <label className="label">
+          LOA (m)
+          {loaAuto && <span className="ml-1 text-emerald-600 text-[10px] font-semibold">✓ Automaticky přepočteno</span>}
+        </label>
+        <input
+          className="input"
+          type="number"
+          step="0.1"
+          placeholder="12.0"
+          value={form.boatLoa}
+          onChange={(e) => { setForm((p) => ({ ...p, boatLoa: e.target.value })); setLoaAuto(false) }}
+        />
+      </div>
+
+      {/* Home port with suggestions */}
       <div>
         <label className="label">Výchozí přístav</label>
-        <input className="input" placeholder="Split, Chorvatsko" value={form.homePort} onChange={f('homePort')} />
+        <input
+          className="input"
+          list="hr-ports"
+          placeholder="Split, Trogir, Šibenik..."
+          value={form.homePort}
+          onChange={f('homePort')}
+        />
+        <datalist id="hr-ports">
+          {HR_PORTS.map((p) => <option key={p} value={p} />)}
+        </datalist>
       </div>
+
       <div className="grid grid-cols-2 gap-3">
         <div>
           <label className="label">Cena charteru</label>
