@@ -1,0 +1,47 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  body {
+    @apply bg-slate-50 text-slate-900 font-sans;
+    -webkit-tap-highlight-color: transparent;
+    overscroll-behavior: none;
+  }
+  * { box-sizing: border-box; }
+}
+
+@layer components {
+  .card {
+    @apply bg-white rounded-2xl shadow-sm border border-slate-100 p-4;
+  }
+  .btn-primary {
+    @apply bg-navy-800 text-white rounded-xl px-4 py-2.5 font-medium text-sm active:scale-95 transition-transform;
+  }
+  .btn-secondary {
+    @apply bg-slate-100 text-slate-700 rounded-xl px-4 py-2.5 font-medium text-sm active:scale-95 transition-transform;
+  }
+  .btn-ocean {
+    @apply bg-ocean-500 text-white rounded-xl px-4 py-2.5 font-medium text-sm active:scale-95 transition-transform;
+  }
+  .input {
+    @apply w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-ocean-500 focus:border-transparent;
+  }
+  .label {
+    @apply block text-xs font-medium text-slate-500 mb-1;
+  }
+  .section-title {
+    @apply text-xs font-semibold text-slate-400 uppercase tracking-wider mb-3;
+  }
+  .badge {
+    @apply inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium;
+  }
+}
+
+/* Safe area for iOS */
+.pb-safe { padding-bottom: env(safe-area-inset-bottom, 16px); }
+.pt-safe { padding-top: env(safe-area-inset-top, 0px); }
+
+/* Bottom nav height */
+.bottom-nav-height { height: 64px; }
+.content-with-nav { padding-bottom: calc(64px + env(safe-area-inset-bottom, 16px)); }
