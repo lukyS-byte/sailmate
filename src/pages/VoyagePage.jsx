@@ -1,5 +1,6 @@
 import { useState } from 'react'
-import { Users, Plus, Trash2, UserPlus, Anchor, Edit2, Check } from 'lucide-react'
+import { Plus, Trash2, UserPlus, Anchor } from 'lucide-react'
+import { useNavigate } from 'react-router-dom'
 import useStore from '../store/useStore'
 import Modal from '../components/Modal'
 
@@ -37,8 +38,14 @@ function AddCrewModal({ voyageId, onClose }) {
 
 export default function VoyagePage() {
   const [showAddCrew, setShowAddCrew] = useState(false)
-  const [editingStatus, setEditingStatus] = useState(false)
-  const { voyages, activeVoyageId, updateVoyage, removeCrewMember } = useStore()
+  const [confirmDelete, setConfirmDelete] = useState(false)
+  const navigate = useNavigate()
+  const { voyages, activeVoyageId, updateVoyage, removeCrewMember, deleteVoyage } = useStore()
+
+  const handleDelete = () => {
+    deleteVoyage(activeVoyageId)
+    navigate('/')
+  }
   const voyage = voyages.find((v) => v.id === activeVoyageId)
 
   if (!voyage) {
@@ -132,7 +139,27 @@ export default function VoyagePage() {
         </div>
       )}
 
+      {/* Delete voyage */}
+      <button
+        onClick={() => setConfirmDelete(true)}
+        className="w-full flex items-center justify-center gap-2 rounded-xl border border-red-200 text-red-500 py-2.5 text-sm font-medium hover:bg-red-50 transition-colors"
+      >
+        <Trash2 size={15} /> Smazat výpravu
+      </button>
+
       {showAddCrew && <AddCrewModal voyageId={voyage.id} onClose={() => setShowAddCrew(false)} />}
+
+      {confirmDelete && (
+        <Modal title="Smazat výpravu?" onClose={() => setConfirmDelete(false)} size="sm">
+          <p className="text-sm text-slate-600 mb-4">
+            Smažou se všechna data výpravy <strong>{voyage.name}</strong> — posádka, výdaje, trasa i záznamy. Tato akce je nevratná.
+          </p>
+          <div className="flex gap-2">
+            <button onClick={() => setConfirmDelete(false)} className="btn-secondary flex-1">Zrušit</button>
+            <button onClick={handleDelete} className="flex-1 bg-red-500 text-white rounded-xl px-4 py-2.5 font-medium text-sm">Smazat</button>
+          </div>
+        </Modal>
+      )}
     </div>
   )
 }
