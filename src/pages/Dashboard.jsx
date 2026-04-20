@@ -178,7 +178,7 @@ export default function Dashboard() {
           <p className="section-title">Rychlý přístup</p>
           <div className="grid grid-cols-2 gap-2">
             <QuickLink icon={<Users size={18} className="text-ocean-500" />} label="Posádka" sub={`${active.crew?.length ?? 0} členů`} to="/voyage" />
-            <QuickLink icon={<Wallet size={18} className="text-amber-500" />} label="Přidat výdaj" sub="Rozdělit náklady" to="/expenses" />
+            <QuickLink icon={<Wallet size={18} className="text-amber-500" />} label="Přidat výdaj" sub="Rozdělit náklady" to="/expenses" state={{ openAdd: true }} />
             <QuickLink icon={<Map size={18} className="text-emerald-500" />} label="Trasa" sub="Waypoints & čas" to="/route" />
             <QuickLink icon={<Wind size={18} className="text-purple-500" />} label="Deník" sub="Záznamy plavby" to="/log" />
           </div>
@@ -224,11 +224,11 @@ function Stat({ icon, value, label }) {
   )
 }
 
-function QuickLink({ icon, label, sub, to }) {
+function QuickLink({ icon, label, sub, to, state }) {
   const navigate = useNavigate()
   return (
     <button
-      onClick={() => navigate(to)}
+      onClick={() => navigate(to, { state })}
       className="card flex items-center gap-3 text-left hover:shadow-md transition-shadow"
     >
       <div className="w-9 h-9 rounded-xl bg-slate-50 flex items-center justify-center flex-shrink-0">{icon}</div>

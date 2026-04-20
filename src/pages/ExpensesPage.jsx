@@ -1,4 +1,5 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
+import { useLocation } from 'react-router-dom'
 import { Plus, Trash2, Wallet, ArrowRight, ChevronDown, ChevronUp, Share2, Copy, Check } from 'lucide-react'
 import useStore from '../store/useStore'
 import { splitExpenses, formatCurrency, EXPENSE_CATEGORIES } from '../utils/calc'
@@ -118,7 +119,8 @@ function AddExpenseModal({ voyage, onClose }) {
 }
 
 export default function ExpensesPage() {
-  const [showAdd, setShowAdd] = useState(false)
+  const location = useLocation()
+  const [showAdd, setShowAdd] = useState(() => !!location.state?.openAdd)
   const [showSettlement, setShowSettlement] = useState(false)
   const [copied, setCopied] = useState(false)
 
