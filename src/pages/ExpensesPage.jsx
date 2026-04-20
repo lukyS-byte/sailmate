@@ -28,7 +28,7 @@ function AddExpenseModal({ voyage, onClose }) {
 
   const submit = (e) => {
     e.preventDefault()
-    if (!form.amount || !form.paidBy) return
+    if (!form.amount) return
     addExpense({
       voyageId: voyage.id,
       description: form.description || EXPENSE_CATEGORIES.find((c) => c.id === form.category)?.label,
