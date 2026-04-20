@@ -80,6 +80,7 @@ function NewVoyageModal({ onClose }) {
     notes: '',
   })
   const [loaAuto, setLoaAuto] = useState(false)
+  const [showSuggestions, setShowSuggestions] = useState(false)
 
   const f = (k) => (e) => setForm((p) => ({ ...p, [k]: e.target.value }))
 
@@ -88,6 +89,7 @@ function NewVoyageModal({ onClose }) {
     const loa = loaFromModel(model)
     setForm((p) => ({ ...p, boatModel: model, boatLoa: loa || p.boatLoa }))
     setLoaAuto(!!loa)
+    setShowSuggestions(true)
   }
 
   const submit = (e) => {
@@ -105,7 +107,7 @@ function NewVoyageModal({ onClose }) {
     navigate('/voyage')
   }
 
-  const modelSuggestions = form.boatModel.length >= 2
+  const modelSuggestions = showSuggestions && form.boatModel.length >= 2
     ? BOATS.filter((b) => b.model.toLowerCase().includes(form.boatModel.toLowerCase())).slice(0, 5)
     : []
 
@@ -151,6 +153,7 @@ function NewVoyageModal({ onClose }) {
                 onClick={() => {
                   setForm((p) => ({ ...p, boatModel: b.model, boatLoa: b.loa.toString() }))
                   setLoaAuto(true)
+                  setShowSuggestions(false)
                 }}
                 className="w-full flex items-center justify-between px-3 py-2.5 text-sm hover:bg-slate-50 border-b border-slate-100 last:border-0"
               >
