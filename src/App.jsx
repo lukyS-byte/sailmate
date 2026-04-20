@@ -5,7 +5,7 @@ import VoyagePage from './pages/VoyagePage'
 import ExpensesPage from './pages/ExpensesPage'
 import RoutePage from './pages/RoutePage'
 import SuppliesPage from './pages/SuppliesPage'
-import LogbookPage from './pages/LogbookPage'
+import ToolsPage from './pages/ToolsPage'
 
 export default function App() {
   return (
@@ -16,7 +16,7 @@ export default function App() {
         <Route path="/expenses" element={<ExpensesPage />} />
         <Route path="/route" element={<RoutePage />} />
         <Route path="/supplies" element={<SuppliesPage />} />
-        <Route path="/log" element={<LogbookPage />} />
+        <Route path="/tools" element={<ToolsPage />} />
       </Routes>
     </Layout>
   )

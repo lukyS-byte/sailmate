@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Plus, Trash2, Wallet, ArrowRight, ChevronDown, ChevronUp } from 'lucide-react'
+import { Plus, Trash2, Wallet, ArrowRight, ChevronDown, ChevronUp, Share2, Copy, Check } from 'lucide-react'
 import useStore from '../store/useStore'
 import { splitExpenses, formatCurrency, EXPENSE_CATEGORIES } from '../utils/calc'
 import Modal from '../components/Modal'
@@ -120,6 +120,39 @@ function AddExpenseModal({ voyage, onClose }) {
 export default function ExpensesPage() {
   const [showAdd, setShowAdd] = useState(false)
   const [showSettlement, setShowSettlement] = useState(false)
+  const [copied, setCopied] = useState(false)
+
+  const shareSettlement = () => {
+    if (!voyage) return
+    const lines = [
+      `⛵ ${voyage.name} — Vyúčtování`,
+      `📅 ${voyage.startDate ? new Date(voyage.startDate).toLocaleDateString('cs') : ''} – ${voyage.endDate ? new Date(voyage.endDate).toLocaleDateString('cs') : ''}`,
+      ``,
+      `💰 Celkové náklady: ${formatCurrency(total, voyage.currency)}`,
+      crew.length > 0 ? `👥 Na osobu: ${formatCurrency(total / crew.length, voyage.currency)}` : '',
+      ``,
+      `💸 Kdo komu zaplatí:`,
+      ...transactions.map((t) => {
+        const from = crew.find((c) => c.id === t.from)
+        const to = crew.find((c) => c.id === t.to)
+        return `  ${from?.name} → ${to?.name}: ${formatCurrency(t.amount, voyage.currency)}`
+      }),
+      transactions.length === 0 ? '  Vše vyrovnáno ✓' : '',
+      ``,
+      `📊 Výdaje podle kategorií:`,
+      ...catTotals.map((c) => `  ${c.icon} ${c.label}: ${formatCurrency(c.total, voyage.currency)}`),
+      ``,
+      `Vygenerováno v SailMate`,
+    ].filter((l) => l !== undefined).join('\n')
+
+    if (navigator.share) {
+      navigator.share({ title: `${voyage.name} — Vyúčtování`, text: lines })
+    } else {
+      navigator.clipboard.writeText(lines)
+      setCopied(true)
+      setTimeout(() => setCopied(false), 2000)
+    }
+  }
   const { voyages, activeVoyageId, expenses, deleteExpense } = useStore()
   const voyage = voyages.find((v) => v.id === activeVoyageId)
   const crew = voyage?.crew ?? []
@@ -142,9 +175,17 @@ export default function ExpensesPage() {
     <div className="p-4 space-y-4">
       <div className="flex items-center justify-between pt-2">
         <h1 className="text-xl font-bold text-navy-800">Náklady</h1>
-        <button onClick={() => setShowAdd(true)} className="btn-ocean flex items-center gap-1.5">
-          <Plus size={16} /> Přidat
-        </button>
+        <div className="flex gap-2">
+          {voyageExpenses.length > 0 && (
+            <button onClick={shareSettlement} className={`flex items-center gap-1.5 rounded-xl px-3 py-2 text-sm font-medium transition-all ${copied ? 'bg-emerald-500 text-white' : 'btn-secondary'}`}>
+              {copied ? <Check size={15} /> : <Share2 size={15} />}
+              {copied ? 'Zkopírováno' : 'Sdílet'}
+            </button>
+          )}
+          <button onClick={() => setShowAdd(true)} className="btn-ocean flex items-center gap-1.5">
+            <Plus size={16} /> Přidat
+          </button>
+        </div>
       </div>
 
       {/* Summary */}
