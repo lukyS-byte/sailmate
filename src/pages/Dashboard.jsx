@@ -125,7 +125,7 @@ function NewVoyageModal({ onClose }) {
         </div>
         <div>
           <label className="label">Do</label>
-          <input className="input" type="date" value={form.endDate} onChange={f('endDate')} />
+          <input className="input" type="date" value={form.endDate} min={form.startDate || undefined} onChange={f('endDate')} />
         </div>
       </div>
 
