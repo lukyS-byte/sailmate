@@ -466,34 +466,64 @@ function LogTab() {
 }
 
 // ── Main ──────────────────────────────────────────────────────
-const TABS = [
-  { id: 'weather', label: '🌬️ Počasí' },
-  { id: 'checklists', label: '✅ Listy' },
-  { id: 'fuel', label: '⛽ Palivo' },
-  { id: 'sos', label: '🆘 SOS' },
-  { id: 'marinas', label: '⚓ Mariny' },
-  { id: 'log', label: '📖 Deník' },
+const TOOLS = [
+  { id: 'weather',    emoji: '🌬️', label: 'Počasí',    sub: 'Předpověď větru',      bg: 'from-sky-500 to-blue-600' },
+  { id: 'checklists', emoji: '✅', label: 'Check-listy', sub: 'Před odplutím, MOB…', bg: 'from-emerald-500 to-teal-600' },
+  { id: 'fuel',       emoji: '⛽', label: 'Palivo',     sub: 'Kalkulačka nákladů',   bg: 'from-amber-500 to-orange-500' },
+  { id: 'sos',        emoji: '🆘', label: 'SOS',        sub: 'Záchranné kontakty',   bg: 'from-red-500 to-rose-600' },
+  { id: 'marinas',    emoji: '⚓', label: 'Mariny',     sub: 'HR · GR · ceny · info',bg: 'from-indigo-500 to-navy-700' },
+  { id: 'log',        emoji: '📖', label: 'Deník',      sub: 'Záznamy plavby',       bg: 'from-purple-500 to-violet-600' },
 ]
 
 export default function ToolsPage() {
-  const [active, setActive] = useState('weather')
+  const [active, setActive] = useState(null)
+  const tool = TOOLS.find((t) => t.id === active)
+
+  if (active && tool) {
+    return (
+      <div className="p-4 space-y-4">
+        <div className="flex items-center gap-3 pt-2">
+          <button onClick={() => setActive(null)} className="w-9 h-9 rounded-xl bg-slate-100 flex items-center justify-center text-slate-600 hover:bg-slate-200 transition-colors flex-shrink-0">
+            ←
+          </button>
+          <div>
+            <h1 className="text-xl font-bold text-navy-800">{tool.emoji} {tool.label}</h1>
+            <p className="text-xs text-slate-400">{tool.sub}</p>
+          </div>
+        </div>
+        {active === 'weather'    && <WeatherTab />}
+        {active === 'checklists' && <ChecklistTab />}
+        {active === 'fuel'       && <FuelTab />}
+        {active === 'sos'        && <SOSTab />}
+        {active === 'marinas'    && <MarinaTab />}
+        {active === 'log'        && <LogTab />}
+      </div>
+    )
+  }
+
   return (
     <div className="p-4 space-y-4">
-      <div className="pt-2"><h1 className="text-xl font-bold text-navy-800">Nástroje</h1></div>
-      <div className="flex gap-1.5 overflow-x-auto pb-1 -mx-4 px-4">
-        {TABS.map((t) => (
-          <button key={t.id} onClick={() => setActive(t.id)}
-            className={`flex-shrink-0 rounded-xl px-3 py-1.5 text-xs font-medium transition-all ${active === t.id ? 'bg-navy-800 text-white shadow-sm' : 'bg-slate-100 text-slate-500'}`}>
-            {t.label}
+      <div className="pt-2">
+        <h1 className="text-xl font-bold text-navy-800">Nástroje</h1>
+        <p className="text-xs text-slate-400 mt-0.5">Vše co kapitán potřebuje</p>
+      </div>
+      <div className="grid grid-cols-2 gap-3">
+        {TOOLS.map((t) => (
+          <button
+            key={t.id}
+            onClick={() => setActive(t.id)}
+            className="rounded-2xl overflow-hidden text-left active:scale-95 transition-transform shadow-sm"
+          >
+            <div className={`bg-gradient-to-br ${t.bg} p-4 pb-3`}>
+              <span className="text-3xl">{t.emoji}</span>
+            </div>
+            <div className="bg-white border border-slate-100 border-t-0 rounded-b-2xl px-3 py-2.5">
+              <p className="font-semibold text-sm text-slate-900">{t.label}</p>
+              <p className="text-[11px] text-slate-400 mt-0.5 leading-tight">{t.sub}</p>
+            </div>
           </button>
         ))}
       </div>
-      {active === 'weather'    && <WeatherTab />}
-      {active === 'checklists' && <ChecklistTab />}
-      {active === 'fuel'       && <FuelTab />}
-      {active === 'sos'        && <SOSTab />}
-      {active === 'marinas'    && <MarinaTab />}
-      {active === 'log'        && <LogTab />}
     </div>
   )
 }
