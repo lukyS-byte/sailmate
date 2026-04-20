@@ -26,7 +26,7 @@ function AddCrewModal({ voyageId, onClose }) {
     <form onSubmit={submit} className="space-y-4">
       <div>
         <label className="label">Jméno</label>
-        <input ref={inputRef} className="input" placeholder="Martin Novák" value={name} onChange={(e) => setName(e.target.value)} required />
+        <input ref={inputRef} className="input" placeholder="Martin Novák" value={name} onChange={(e) => setName(e.target.value)} autoCapitalize="words" autoCorrect="off" required />
       </div>
       <label className="flex items-center gap-3 cursor-pointer">
         <div
