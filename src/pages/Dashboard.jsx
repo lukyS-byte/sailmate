@@ -81,6 +81,7 @@ function NewVoyageModal({ onClose }) {
   })
   const [loaAuto, setLoaAuto] = useState(false)
   const [showSuggestions, setShowSuggestions] = useState(false)
+  const [showPortSuggestions, setShowPortSuggestions] = useState(false)
 
   const f = (k) => (e) => setForm((p) => ({ ...p, [k]: e.target.value }))
 
@@ -181,19 +182,30 @@ function NewVoyageModal({ onClose }) {
         />
       </div>
 
-      {/* Home port with suggestions */}
-      <div>
+      {/* Home port with custom suggestions */}
+      <div className="relative">
         <label className="label">Výchozí přístav</label>
         <input
           className="input"
-          list="hr-ports"
           placeholder="Split, Trogir, Šibenik..."
           value={form.homePort}
-          onChange={f('homePort')}
+          autoComplete="off"
+          onChange={(e) => { setForm((p) => ({ ...p, homePort: e.target.value })); setShowPortSuggestions(true) }}
         />
-        <datalist id="hr-ports">
-          {HR_PORTS.map((p) => <option key={p} value={p} />)}
-        </datalist>
+        {showPortSuggestions && form.homePort.length >= 1 && (
+          <div className="absolute z-10 left-0 right-0 bg-white border border-slate-200 rounded-xl shadow-lg mt-1 overflow-hidden">
+            {HR_PORTS.filter((p) => p.toLowerCase().includes(form.homePort.toLowerCase())).slice(0, 5).map((port) => (
+              <button
+                key={port}
+                type="button"
+                onClick={() => { setForm((p) => ({ ...p, homePort: port })); setShowPortSuggestions(false) }}
+                className="w-full text-left px-3 py-2.5 text-sm hover:bg-slate-50 border-b border-slate-100 last:border-0"
+              >
+                {port}
+              </button>
+            ))}
+          </div>
+        )}
       </div>
 
       <div className="grid grid-cols-2 gap-3">
