@@ -194,7 +194,11 @@ export default function VoyagePage() {
         <Trash2 size={15} /> Smazat výpravu
       </button>
 
-      {showAddCrew && <AddCrewModal voyageId={voyage.id} onClose={() => setShowAddCrew(false)} />}
+      {showAddCrew && (
+        <Modal title="Přidat člena posádky" onClose={() => setShowAddCrew(false)}>
+          <AddCrewModal voyageId={voyage.id} onClose={() => setShowAddCrew(false)} />
+        </Modal>
+      )}
 
       {confirmDelete && (
         <Modal title="Smazat výpravu?" onClose={() => setConfirmDelete(false)} size="sm">
