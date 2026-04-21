@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react'
-import { Plus, Trash2, UserPlus, Anchor } from 'lucide-react'
+import { Plus, Trash2, UserPlus, Anchor, Check } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import useStore from '../store/useStore'
 import Modal from '../components/Modal'
@@ -57,8 +57,13 @@ function AddCrewModal({ voyageId, onClose }) {
 export default function VoyagePage() {
   const [showAddCrew, setShowAddCrew] = useState(false)
   const [confirmDelete, setConfirmDelete] = useState(false)
+  const [charterAdded, setCharterAdded] = useState(false)
   const navigate = useNavigate()
-  const { voyages, activeVoyageId, updateVoyage, removeCrewMember, deleteVoyage } = useStore()
+  const { voyages, activeVoyageId, updateVoyage, removeCrewMember, deleteVoyage, addExpense, expenses } = useStore()
+
+  const charterAlreadyAdded = expenses.some(
+    (e) => e.voyageId === activeVoyageId && e.category === 'charter'
+  )
 
   const handleDelete = () => {
     deleteVoyage(activeVoyageId)
@@ -153,7 +158,31 @@ export default function VoyagePage() {
             {voyage.charterCost} {voyage.currency} ÷ {voyage.crew.length} osob ={' '}
             <span className="font-bold">{Math.ceil(voyage.charterCost / voyage.crew.length)} {voyage.currency}/osoba</span>
           </p>
-          <p className="text-xs text-amber-600 mt-1">Přidej charter jako výdaj v záložce Náklady pro automatické vyúčtování.</p>
+          <button
+            onClick={() => {
+              if (charterAlreadyAdded) return
+              addExpense({
+                voyageId: voyage.id,
+                description: `Charter ${voyage.boatName || voyage.boatModel || ''}`.trim(),
+                amount: voyage.charterCost,
+                currency: voyage.currency,
+                category: 'charter',
+                paidBy: voyage.crew.find((c) => c.isSkipper)?.id ?? voyage.crew[0].id,
+                splitAmong: voyage.crew.map((c) => c.id),
+                date: voyage.startDate || new Date().toISOString().slice(0, 10),
+              })
+              setCharterAdded(true)
+            }}
+            className={`mt-3 w-full rounded-xl py-2 text-sm font-medium flex items-center justify-center gap-2 transition-colors ${
+              charterAlreadyAdded || charterAdded
+                ? 'bg-emerald-100 text-emerald-700 cursor-default'
+                : 'bg-amber-200 text-amber-800 hover:bg-amber-300'
+            }`}
+          >
+            {charterAlreadyAdded || charterAdded
+              ? <><Check size={14} /> Přidáno do vyúčtování</>
+              : '+ Přidat do vyúčtování'}
+          </button>
         </div>
       )}
 
