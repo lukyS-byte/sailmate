@@ -146,7 +146,7 @@ function NewVoyageModal({ onClose }) {
           autoComplete="off"
         />
         {modelSuggestions.length > 0 && (
-          <div className="absolute z-10 left-0 right-0 bg-white border border-slate-200 rounded-xl shadow-lg mt-1 overflow-hidden">
+          <div className="absolute z-10 left-0 right-0 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-600 rounded-xl shadow-lg mt-1 overflow-hidden">
             {modelSuggestions.map((b) => (
               <button
                 key={b.model}
@@ -156,7 +156,7 @@ function NewVoyageModal({ onClose }) {
                   setLoaAuto(true)
                   setShowSuggestions(false)
                 }}
-                className="w-full flex items-center justify-between px-3 py-2.5 text-sm hover:bg-slate-50 border-b border-slate-100 last:border-0"
+                className="w-full flex items-center justify-between px-3 py-2.5 text-sm hover:bg-slate-50 dark:hover:bg-slate-700 border-b border-slate-100 dark:border-slate-700 last:border-0 dark:text-slate-200"
               >
                 <span>{b.model}</span>
                 <span className="text-xs text-slate-400">{b.loa} m</span>
@@ -193,13 +193,13 @@ function NewVoyageModal({ onClose }) {
           onChange={(e) => { setForm((p) => ({ ...p, homePort: e.target.value })); setShowPortSuggestions(true) }}
         />
         {showPortSuggestions && form.homePort.length >= 1 && (
-          <div className="absolute z-10 left-0 right-0 bg-white border border-slate-200 rounded-xl shadow-lg mt-1 overflow-hidden">
+          <div className="absolute z-10 left-0 right-0 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-600 rounded-xl shadow-lg mt-1 overflow-hidden">
             {HR_PORTS.filter((p) => p.toLowerCase().includes(form.homePort.toLowerCase())).slice(0, 5).map((port) => (
               <button
                 key={port}
                 type="button"
                 onClick={() => { setForm((p) => ({ ...p, homePort: port })); setShowPortSuggestions(false) }}
-                className="w-full text-left px-3 py-2.5 text-sm hover:bg-slate-50 border-b border-slate-100 last:border-0"
+                className="w-full text-left px-3 py-2.5 text-sm hover:bg-slate-50 dark:hover:bg-slate-700 dark:text-slate-200 border-b border-slate-100 dark:border-slate-700 last:border-0"
               >
                 {port}
               </button>
@@ -244,7 +244,7 @@ export default function Dashboard() {
       {/* Header */}
       <div className="flex items-center justify-between pt-2">
         <div>
-          <h1 className="text-xl font-bold text-navy-800 flex items-center gap-2">
+          <h1 className="text-xl font-bold text-navy-800 dark:text-white flex items-center gap-2">
             <Anchor size={20} className="text-ocean-500" /> SailMate
           </h1>
           <p className="text-xs text-slate-400 mt-0.5">Kapitánův lodní asistent</p>
@@ -373,7 +373,7 @@ function QuickLink({ icon, label, sub, to, state }) {
       onClick={() => navigate(to, { state })}
       className="card flex items-center gap-3 text-left hover:shadow-md transition-shadow"
     >
-      <div className="w-9 h-9 rounded-xl bg-slate-50 flex items-center justify-center flex-shrink-0">{icon}</div>
+      <div className="w-9 h-9 rounded-xl bg-slate-50 dark:bg-slate-700 flex items-center justify-center flex-shrink-0">{icon}</div>
       <div>
         <p className="text-sm font-semibold">{label}</p>
         <p className="text-[11px] text-slate-400">{sub}</p>

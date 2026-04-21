@@ -119,7 +119,7 @@ export default function SuppliesPage() {
     <div className="p-4 space-y-4">
       <div className="flex items-center justify-between pt-2">
         <div>
-          <h1 className="text-xl font-bold text-navy-800">Zásoby</h1>
+          <h1 className="text-xl font-bold text-navy-800 dark:text-white">Zásoby</h1>
           {all.length > 0 && (
             <p className="text-xs text-slate-400">{checked}/{all.length} zabaleno</p>
           )}
@@ -136,7 +136,7 @@ export default function SuppliesPage() {
             <span>Připravenost</span>
             <span className="font-semibold">{Math.round((checked / all.length) * 100)}%</span>
           </div>
-          <div className="h-2 bg-slate-100 rounded-full overflow-hidden">
+          <div className="h-2 bg-slate-100 dark:bg-slate-700 rounded-full overflow-hidden">
             <div
               className="h-full bg-gradient-to-r from-ocean-500 to-emerald-500 rounded-full transition-all duration-500"
               style={{ width: `${(checked / all.length) * 100}%` }}

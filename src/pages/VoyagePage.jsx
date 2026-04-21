@@ -84,7 +84,7 @@ export default function VoyagePage() {
   return (
     <div className="p-4 space-y-5">
       <div className="flex items-center justify-between pt-2">
-        <h1 className="text-xl font-bold text-navy-800">Výprava</h1>
+        <h1 className="text-xl font-bold text-navy-800 dark:text-white">Výprava</h1>
         <button
           onClick={() => updateVoyage(voyage.id, { status: statuses[(statuses.findIndex((s) => s.id === voyage.status) + 1) % 3].id })}
           className={`badge text-sm px-3 py-1 cursor-pointer ${statuses.find((s) => s.id === voyage.status)?.color ?? 'bg-slate-100 text-slate-600'}`}
@@ -95,7 +95,7 @@ export default function VoyagePage() {
 
       {/* Voyage info card */}
       <div className="card space-y-4">
-        <h2 className="font-bold text-lg text-navy-800">{voyage.name}</h2>
+        <h2 className="font-bold text-lg text-navy-800 dark:text-white">{voyage.name}</h2>
         <div className="grid grid-cols-2 gap-3 text-sm">
           <InfoRow label="Loď" value={voyage.boatName || '—'} />
           <InfoRow label="LOA" value={voyage.boatLoa ? `${voyage.boatLoa} m` : '—'} />
@@ -104,7 +104,7 @@ export default function VoyagePage() {
           <InfoRow label="Výchozí přístav" value={voyage.homePort || '—'} />
           <InfoRow label="Charter" value={voyage.charterCost ? `${voyage.charterCost} ${voyage.currency}` : '—'} />
         </div>
-        {voyage.notes && <p className="text-sm text-slate-500 bg-slate-50 rounded-xl p-3">{voyage.notes}</p>}
+        {voyage.notes && <p className="text-sm text-slate-500 bg-slate-50 dark:bg-slate-700 dark:text-slate-300 rounded-xl p-3">{voyage.notes}</p>}
       </div>
 
       {/* Crew */}
@@ -213,7 +213,7 @@ function InfoRow({ label, value }) {
   return (
     <div>
       <p className="text-xs text-slate-400">{label}</p>
-      <p className="font-medium text-slate-800 truncate">{value}</p>
+      <p className="font-medium text-slate-800 dark:text-slate-100 truncate">{value}</p>
     </div>
   )
 }

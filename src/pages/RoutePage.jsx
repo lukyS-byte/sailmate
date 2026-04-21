@@ -172,7 +172,7 @@ export default function RoutePage() {
   return (
     <div className="p-4 space-y-4">
       <div className="flex items-center justify-between pt-2">
-        <h1 className="text-xl font-bold text-navy-800">Trasa</h1>
+        <h1 className="text-xl font-bold text-navy-800 dark:text-white">Trasa</h1>
         <button onClick={() => setShowAdd(true)} className="btn-ocean flex items-center gap-1.5">
           <Plus size={16} /> Zastávka
         </button>
@@ -199,7 +199,7 @@ export default function RoutePage() {
       {/* Speed selector */}
       <div className="card flex items-center gap-3">
         <Navigation size={16} className="text-ocean-500 flex-shrink-0" />
-        <span className="text-sm text-slate-600">Průměrná rychlost:</span>
+        <span className="text-sm text-slate-600 dark:text-slate-300">Průměrná rychlost:</span>
         <input
           type="range"
           min="3"
@@ -208,7 +208,7 @@ export default function RoutePage() {
           onChange={(e) => setSpeed(+e.target.value)}
           className="flex-1 accent-ocean-500"
         />
-        <span className="text-sm font-bold text-navy-800 w-12 text-right">{speed} uzlů</span>
+        <span className="text-sm font-bold text-navy-800 dark:text-white w-12 text-right">{speed} uzlů</span>
       </div>
 
       {/* Waypoints */}
@@ -233,7 +233,7 @@ export default function RoutePage() {
             <div key={wp.id}>
               {leg && leg.nm && (
                 <div className="flex items-center gap-2 px-4 py-1 text-xs text-slate-400">
-                  <div className="w-px h-5 bg-slate-200 mx-1" />
+                  <div className="w-px h-5 bg-slate-200 dark:bg-slate-600 mx-1" />
                   <Navigation size={11} className="text-ocean-400" />
                   <span>{leg.nm.toFixed(1)} NM</span>
                   {leg.eta && <span>· ~{formatETA(leg.eta)}</span>}
