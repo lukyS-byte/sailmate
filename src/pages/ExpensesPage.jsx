@@ -1,20 +1,22 @@
 import { useState, useEffect } from 'react'
 import { useLocation } from 'react-router-dom'
-import { Plus, Trash2, Wallet, ArrowRight, ChevronDown, ChevronUp, Share2, Copy, Check } from 'lucide-react'
+import { Plus, Trash2, Wallet, ArrowRight, ChevronDown, ChevronUp, Share2, Copy, Check, Pencil } from 'lucide-react'
 import useStore from '../store/useStore'
 import { splitExpenses, formatCurrency, EXPENSE_CATEGORIES } from '../utils/calc'
 import Modal from '../components/Modal'
 
-function AddExpenseModal({ voyage, onClose }) {
+function AddExpenseModal({ voyage, onClose, expense }) {
   const addExpense = useStore((s) => s.addExpense)
+  const updateExpense = useStore((s) => s.updateExpense)
   const crew = voyage.crew ?? []
+  const isEdit = !!expense
   const [form, setForm] = useState({
-    description: '',
-    amount: '',
-    category: 'food',
-    paidBy: crew[0]?.id ?? '',
-    splitAmong: crew.map((c) => c.id),
-    date: new Date().toISOString().slice(0, 10),
+    description: expense?.description ?? '',
+    amount: expense?.amount?.toString() ?? '',
+    category: expense?.category ?? 'food',
+    paidBy: expense?.paidBy ?? crew[0]?.id ?? '',
+    splitAmong: expense?.splitAmong ?? crew.map((c) => c.id),
+    date: expense?.date ?? new Date().toISOString().slice(0, 10),
   })
 
   const f = (k) => (e) => setForm((p) => ({ ...p, [k]: e.target.value }))
@@ -29,8 +31,7 @@ function AddExpenseModal({ voyage, onClose }) {
   const submit = (e) => {
     e.preventDefault()
     if (!form.amount) return
-    addExpense({
-      voyageId: voyage.id,
+    const data = {
       description: form.description || EXPENSE_CATEGORIES.find((c) => c.id === form.category)?.label,
       amount: parseFloat(form.amount),
       currency: voyage.currency,
@@ -38,7 +39,12 @@ function AddExpenseModal({ voyage, onClose }) {
       paidBy: form.paidBy,
       splitAmong: form.splitAmong,
       date: form.date,
-    })
+    }
+    if (isEdit) {
+      updateExpense(expense.id, data)
+    } else {
+      addExpense({ voyageId: voyage.id, ...data })
+    }
     onClose()
   }
 
@@ -113,7 +119,7 @@ function AddExpenseModal({ voyage, onClose }) {
           </div>
         </>
       )}
-      <button type="submit" className="btn-ocean w-full">Přidat výdaj</button>
+      <button type="submit" className="btn-ocean w-full">{isEdit ? 'Uložit změny' : 'Přidat výdaj'}</button>
     </form>
   )
 }
@@ -121,6 +127,7 @@ function AddExpenseModal({ voyage, onClose }) {
 export default function ExpensesPage() {
   const location = useLocation()
   const [showAdd, setShowAdd] = useState(() => !!location.state?.openAdd)
+  const [editExpense, setEditExpense] = useState(null)
   const [showSettlement, setShowSettlement] = useState(false)
   const [copied, setCopied] = useState(false)
 
@@ -290,6 +297,9 @@ export default function ExpensesPage() {
                     </p>
                   </div>
                   <span className="font-bold text-sm text-slate-800 flex-shrink-0">{formatCurrency(exp.amount, voyage.currency)}</span>
+                  <button onClick={() => setEditExpense(exp)} className="p-1.5 text-slate-300 hover:text-ocean-400 transition-colors">
+                    <Pencil size={14} />
+                  </button>
                   <button onClick={() => deleteExpense(exp.id)} className="p-1.5 text-slate-300 hover:text-red-400 transition-colors">
                     <Trash2 size={14} />
                   </button>
@@ -301,6 +311,7 @@ export default function ExpensesPage() {
       </div>
 
       {showAdd && <AddExpenseModal voyage={voyage} onClose={() => setShowAdd(false)} />}
+      {editExpense && <AddExpenseModal voyage={voyage} expense={editExpense} onClose={() => setEditExpense(null)} />}
     </div>
   )
 }

@@ -1,9 +1,15 @@
 import { useState } from 'react'
-import { Plus, Trash2, UserPlus, Anchor, Check, Share2, Copy } from 'lucide-react'
+import { Plus, Trash2, UserPlus, Anchor, Check, Share2, Copy, Pencil } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import useStore from '../store/useStore'
 import Modal from '../components/Modal'
 import { supabase } from '../lib/supabase'
+
+const HR_PORTS = [
+  'Split','Trogir','Šibenik','Zadar','Biograd na Moru','Murter','Primošten',
+  'Hvar','Korčula','Dubrovnik','Omiš','Makarska','Vis','Brač (Supetar)',
+  'Rovinj','Pula','Mali Lošinj','Krk','Rab','Skradin','Tribunj',
+]
 
 function AddCrewModal({ voyageId, onClose }) {
   const addCrewMember = useStore((s) => s.addCrewMember)
@@ -49,8 +55,106 @@ function AddCrewModal({ voyageId, onClose }) {
   )
 }
 
+function EditVoyageModal({ voyage, onClose }) {
+  const updateVoyage = useStore((s) => s.updateVoyage)
+  const [form, setForm] = useState({
+    name: voyage.name ?? '',
+    startDate: voyage.startDate ?? '',
+    endDate: voyage.endDate ?? '',
+    boatName: voyage.boatName ?? '',
+    boatModel: voyage.boatModel ?? '',
+    boatLoa: voyage.boatLoa?.toString() ?? '',
+    homePort: voyage.homePort ?? '',
+    charterCost: voyage.charterCost?.toString() ?? '',
+    currency: voyage.currency ?? 'EUR',
+    notes: voyage.notes ?? '',
+  })
+  const [showPortSuggestions, setShowPortSuggestions] = useState(false)
+  const f = (k) => (e) => setForm((p) => ({ ...p, [k]: e.target.value }))
+
+  const submit = (e) => {
+    e.preventDefault()
+    updateVoyage(voyage.id, {
+      ...form,
+      boatLoa: parseFloat(form.boatLoa) || voyage.boatLoa,
+      charterCost: parseFloat(form.charterCost) || 0,
+    })
+    onClose()
+  }
+
+  return (
+    <form onSubmit={submit} className="space-y-3">
+      <div>
+        <label className="label">Název výpravy *</label>
+        <input className="input" value={form.name} onChange={f('name')} required />
+      </div>
+      <div className="grid grid-cols-2 gap-3">
+        <div>
+          <label className="label">Od</label>
+          <input className="input" type="date" value={form.startDate} onChange={f('startDate')} />
+        </div>
+        <div>
+          <label className="label">Do</label>
+          <input className="input" type="date" value={form.endDate} min={form.startDate || undefined} onChange={f('endDate')} />
+        </div>
+      </div>
+      <div>
+        <label className="label">Jméno lodě</label>
+        <input className="input" value={form.boatName} onChange={f('boatName')} />
+      </div>
+      <div>
+        <label className="label">Typ / model lodě</label>
+        <input className="input" value={form.boatModel} onChange={f('boatModel')} />
+      </div>
+      <div>
+        <label className="label">LOA (m)</label>
+        <input className="input" type="number" step="0.1" value={form.boatLoa} onChange={f('boatLoa')} />
+      </div>
+      <div className="relative">
+        <label className="label">Výchozí přístav</label>
+        <input
+          className="input"
+          value={form.homePort}
+          autoComplete="off"
+          onChange={(e) => { setForm((p) => ({ ...p, homePort: e.target.value })); setShowPortSuggestions(true) }}
+        />
+        {showPortSuggestions && form.homePort.length >= 1 && (
+          <div className="absolute z-10 left-0 right-0 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-600 rounded-xl shadow-lg mt-1 overflow-hidden">
+            {HR_PORTS.filter((p) => p.toLowerCase().includes(form.homePort.toLowerCase())).slice(0, 5).map((port) => (
+              <button key={port} type="button"
+                onClick={() => { setForm((p) => ({ ...p, homePort: port })); setShowPortSuggestions(false) }}
+                className="w-full text-left px-3 py-2.5 text-sm hover:bg-slate-50 dark:hover:bg-slate-700 dark:text-slate-200 border-b border-slate-100 dark:border-slate-700 last:border-0"
+              >{port}</button>
+            ))}
+          </div>
+        )}
+      </div>
+      <div className="grid grid-cols-2 gap-3">
+        <div>
+          <label className="label">Cena charteru</label>
+          <input className="input" type="number" value={form.charterCost} onChange={f('charterCost')} />
+        </div>
+        <div>
+          <label className="label">Měna</label>
+          <select className="input" value={form.currency} onChange={f('currency')}>
+            <option value="EUR">EUR €</option>
+            <option value="USD">USD $</option>
+            <option value="CZK">CZK Kč</option>
+          </select>
+        </div>
+      </div>
+      <div>
+        <label className="label">Poznámky</label>
+        <textarea className="input" rows={2} value={form.notes} onChange={f('notes')} />
+      </div>
+      <button type="submit" className="btn-ocean w-full">Uložit změny</button>
+    </form>
+  )
+}
+
 export default function VoyagePage() {
   const [showAddCrew, setShowAddCrew] = useState(false)
+  const [showEdit, setShowEdit] = useState(false)
   const [confirmDelete, setConfirmDelete] = useState(false)
   const [charterAdded, setCharterAdded] = useState(false)
   const [shared, setShared] = useState(false)
@@ -118,12 +222,20 @@ export default function VoyagePage() {
       <div className="card space-y-4">
         <div className="flex items-center justify-between">
           <h2 className="font-bold text-lg text-navy-800 dark:text-white">{voyage.name}</h2>
-          <button
-            onClick={handleShare}
-            className={`flex items-center gap-1.5 rounded-xl px-3 py-1.5 text-xs font-medium transition-all ${shared ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300'}`}
-          >
-            {shared ? <><Copy size={12} /> Zkopírováno</> : <><Share2 size={12} /> Sdílet</>}
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => setShowEdit(true)}
+              className="flex items-center gap-1.5 rounded-xl px-3 py-1.5 text-xs font-medium bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300"
+            >
+              <Pencil size={12} /> Upravit
+            </button>
+            <button
+              onClick={handleShare}
+              className={`flex items-center gap-1.5 rounded-xl px-3 py-1.5 text-xs font-medium transition-all ${shared ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300'}`}
+            >
+              {shared ? <><Copy size={12} /> Zkopírováno</> : <><Share2 size={12} /> Sdílet</>}
+            </button>
+          </div>
         </div>
         <div className="grid grid-cols-2 gap-3 text-sm">
           <InfoRow label="Loď" value={voyage.boatName || '—'} />
@@ -162,10 +274,7 @@ export default function VoyagePage() {
                 <p className="font-medium text-sm truncate">{member.name}</p>
                 <p className="text-xs text-slate-400">{member.isSkipper ? '⚓ Kapitán' : 'Posádka'}</p>
               </div>
-              <button
-                onClick={() => removeCrewMember(voyage.id, member.id)}
-                className="p-2 text-slate-300 hover:text-red-400 transition-colors"
-              >
+              <button onClick={() => removeCrewMember(voyage.id, member.id)} className="p-2 text-slate-300 hover:text-red-400 transition-colors">
                 <Trash2 size={15} />
               </button>
             </div>
@@ -202,9 +311,7 @@ export default function VoyagePage() {
                 : 'bg-amber-200 text-amber-800 hover:bg-amber-300'
             }`}
           >
-            {charterAlreadyAdded || charterAdded
-              ? <><Check size={14} /> Přidáno do vyúčtování</>
-              : '+ Přidat do vyúčtování'}
+            {charterAlreadyAdded || charterAdded ? <><Check size={14} /> Přidáno do vyúčtování</> : '+ Přidat do vyúčtování'}
           </button>
         </div>
       )}
@@ -216,6 +323,12 @@ export default function VoyagePage() {
       >
         <Trash2 size={15} /> Smazat výpravu
       </button>
+
+      {showEdit && (
+        <Modal title="Upravit výpravu" onClose={() => setShowEdit(false)}>
+          <EditVoyageModal voyage={voyage} onClose={() => setShowEdit(false)} />
+        </Modal>
+      )}
 
       {showAddCrew && (
         <Modal title="Přidat člena posádky" onClose={() => setShowAddCrew(false)}>

@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { LogOut, Sun, Moon } from 'lucide-react'
+import { LogOut, Sun, Moon, WifiOff } from 'lucide-react'
 import BottomNav from './BottomNav'
 import { supabase } from '../lib/supabase'
 
@@ -20,11 +20,29 @@ function useDarkMode() {
   return [dark, setDark]
 }
 
+function useOnlineStatus() {
+  const [online, setOnline] = useState(() => navigator.onLine)
+  useEffect(() => {
+    const on = () => setOnline(true)
+    const off = () => setOnline(false)
+    window.addEventListener('online', on)
+    window.addEventListener('offline', off)
+    return () => { window.removeEventListener('online', on); window.removeEventListener('offline', off) }
+  }, [])
+  return online
+}
+
 export default function Layout({ children, user }) {
   const [dark, setDark] = useDarkMode()
+  const online = useOnlineStatus()
 
   return (
     <div className="min-h-screen bg-slate-50 dark:bg-slate-900">
+      {!online && (
+        <div className="flex items-center justify-center gap-2 bg-amber-500 text-white text-xs font-medium py-1.5 px-4">
+          <WifiOff size={13} /> Offline — změny se uloží po obnovení připojení
+        </div>
+      )}
       {user && (
         <div className="flex items-center justify-between px-4 py-2 bg-white dark:bg-slate-800 border-b border-slate-100 dark:border-slate-700 text-xs text-slate-400">
           <span className="truncate max-w-[180px]">{user.email}</span>
