@@ -106,6 +106,23 @@ const useStore = create(
         get()
           .logbook.filter((l) => l.voyageId === voyageId)
           .sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp)),
+
+      // ── Cloud sync helpers ───────────────────────────────
+      importData: (data) =>
+        set({
+          voyages: data.voyages ?? [],
+          expenses: data.expenses ?? [],
+          waypoints: data.waypoints ?? [],
+          supplies: data.supplies ?? [],
+          logbook: data.logbook ?? [],
+          activeVoyageId: data.activeVoyageId ?? null,
+        }),
+      clearData: () =>
+        set({ voyages: [], expenses: [], waypoints: [], supplies: [], logbook: [], activeVoyageId: null }),
+      getSnapshot: () => {
+        const { voyages, expenses, waypoints, supplies, logbook, activeVoyageId } = get()
+        return { voyages, expenses, waypoints, supplies, logbook, activeVoyageId }
+      },
     }),
     { name: 'sailmate-v1' }
   )
