@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from 'react'
+import { useState } from 'react'
 import { Plus, Trash2, UserPlus, Anchor, Check } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import useStore from '../store/useStore'
@@ -8,12 +8,6 @@ function AddCrewModal({ voyageId, onClose }) {
   const addCrewMember = useStore((s) => s.addCrewMember)
   const [name, setName] = useState('')
   const [isSkipper, setIsSkipper] = useState(false)
-  const inputRef = useRef(null)
-
-  useEffect(() => {
-    const t = setTimeout(() => inputRef.current?.focus(), 100)
-    return () => clearTimeout(t)
-  }, [])
 
   const submit = (e) => {
     e.preventDefault()
@@ -27,9 +21,9 @@ function AddCrewModal({ voyageId, onClose }) {
       <div>
         <label className="label">Jméno</label>
         <input
-          ref={inputRef}
           className="input"
           placeholder="Martin Novák"
+          autoFocus
           value={name}
           onChange={(e) => {
             const val = e.target.value
