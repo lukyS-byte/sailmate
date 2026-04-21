@@ -206,6 +206,22 @@ export default function ExpensesPage() {
             {formatCurrency(total / crew.length, voyage.currency)} / osoba ({crew.length} lidí)
           </p>
         )}
+        {voyage.budget > 0 && (
+          <div className="mt-3">
+            <div className="flex items-center justify-between text-xs mb-1">
+              <span className="text-blue-200">Rozpočet: {formatCurrency(voyage.budget, voyage.currency)}</span>
+              <span className={`font-semibold ${total > voyage.budget ? 'text-red-300' : 'text-emerald-300'}`}>
+                {total > voyage.budget ? `Překročen o ${formatCurrency(total - voyage.budget, voyage.currency)}` : `Zbývá ${formatCurrency(voyage.budget - total, voyage.currency)}`}
+              </span>
+            </div>
+            <div className="h-1.5 bg-white/20 rounded-full overflow-hidden">
+              <div
+                className={`h-full rounded-full transition-all ${total > voyage.budget ? 'bg-red-400' : 'bg-emerald-400'}`}
+                style={{ width: `${Math.min((total / voyage.budget) * 100, 100)}%` }}
+              />
+            </div>
+          </div>
+        )}
         {catTotals.length > 0 && (
           <div className="flex flex-wrap gap-1.5 mt-3">
             {catTotals.slice(0, 4).map((c) => (

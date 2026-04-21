@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { LogOut, Sun, Moon, WifiOff } from 'lucide-react'
 import BottomNav from './BottomNav'
+import InstallPrompt from './InstallPrompt'
 import { supabase } from '../lib/supabase'
 
 function useDarkMode() {
@@ -66,6 +67,7 @@ export default function Layout({ children, user }) {
         {children}
       </main>
       <BottomNav />
+      <InstallPrompt />
     </div>
   )
 }

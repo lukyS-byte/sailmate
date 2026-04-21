@@ -101,6 +101,7 @@ function NewVoyageModal({ onClose }) {
       boatName: form.boatName || form.boatModel,
       boatLoa: parseFloat(form.boatLoa) || 12,
       charterCost: parseFloat(form.charterCost) || 0,
+      budget: parseFloat(form.budget) || 0,
       crew: [],
       status: 'planning',
     })
@@ -221,6 +222,10 @@ function NewVoyageModal({ onClose }) {
             <option value="CZK">CZK Kč</option>
           </select>
         </div>
+      </div>
+      <div>
+        <label className="label">Celkový rozpočet výpravy</label>
+        <input className="input" type="number" placeholder="Volitelné — pro sledování nákladů" value={form.budget ?? ''} onChange={(e) => setForm((p) => ({ ...p, budget: e.target.value }))} />
       </div>
       <button type="submit" className="btn-ocean w-full mt-2">
         Vytvořit výpravu

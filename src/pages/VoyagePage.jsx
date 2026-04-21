@@ -67,6 +67,7 @@ function EditVoyageModal({ voyage, onClose }) {
     homePort: voyage.homePort ?? '',
     charterCost: voyage.charterCost?.toString() ?? '',
     currency: voyage.currency ?? 'EUR',
+    budget: voyage.budget?.toString() ?? '',
     notes: voyage.notes ?? '',
   })
   const [showPortSuggestions, setShowPortSuggestions] = useState(false)
@@ -78,6 +79,7 @@ function EditVoyageModal({ voyage, onClose }) {
       ...form,
       boatLoa: parseFloat(form.boatLoa) || voyage.boatLoa,
       charterCost: parseFloat(form.charterCost) || 0,
+      budget: parseFloat(form.budget) || 0,
     })
     onClose()
   }
@@ -142,6 +144,10 @@ function EditVoyageModal({ voyage, onClose }) {
             <option value="CZK">CZK Kč</option>
           </select>
         </div>
+      </div>
+      <div>
+        <label className="label">Celkový rozpočet výpravy</label>
+        <input className="input" type="number" placeholder="Volitelné" value={form.budget} onChange={f('budget')} />
       </div>
       <div>
         <label className="label">Poznámky</label>
