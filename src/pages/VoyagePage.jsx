@@ -1,8 +1,9 @@
 import { useState } from 'react'
-import { Plus, Trash2, UserPlus, Anchor, Check } from 'lucide-react'
+import { Plus, Trash2, UserPlus, Anchor, Check, Share2, Copy } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import useStore from '../store/useStore'
 import Modal from '../components/Modal'
+import { supabase } from '../lib/supabase'
 
 function AddCrewModal({ voyageId, onClose }) {
   const addCrewMember = useStore((s) => s.addCrewMember)
@@ -52,6 +53,7 @@ export default function VoyagePage() {
   const [showAddCrew, setShowAddCrew] = useState(false)
   const [confirmDelete, setConfirmDelete] = useState(false)
   const [charterAdded, setCharterAdded] = useState(false)
+  const [shared, setShared] = useState(false)
   const navigate = useNavigate()
   const { voyages, activeVoyageId, updateVoyage, removeCrewMember, deleteVoyage, addExpense, expenses } = useStore()
 
@@ -63,6 +65,25 @@ export default function VoyagePage() {
     deleteVoyage(activeVoyageId)
     navigate('/')
   }
+
+  const handleShare = async () => {
+    if (!voyage) return
+    const token = crypto.randomUUID()
+    const voyageExpenses = expenses.filter((e) => e.voyageId === activeVoyageId)
+    await supabase.from('voyage_shares').upsert({
+      token,
+      data: { voyage, crew: voyage.crew ?? [], expenses: voyageExpenses },
+    })
+    const url = `${window.location.origin}/share/${token}`
+    if (navigator.share) {
+      navigator.share({ title: `${voyage.name} — Vyúčtování`, url })
+    } else {
+      navigator.clipboard.writeText(url)
+      setShared(true)
+      setTimeout(() => setShared(false), 2500)
+    }
+  }
+
   const voyage = voyages.find((v) => v.id === activeVoyageId)
 
   if (!voyage) {
@@ -95,7 +116,15 @@ export default function VoyagePage() {
 
       {/* Voyage info card */}
       <div className="card space-y-4">
-        <h2 className="font-bold text-lg text-navy-800 dark:text-white">{voyage.name}</h2>
+        <div className="flex items-center justify-between">
+          <h2 className="font-bold text-lg text-navy-800 dark:text-white">{voyage.name}</h2>
+          <button
+            onClick={handleShare}
+            className={`flex items-center gap-1.5 rounded-xl px-3 py-1.5 text-xs font-medium transition-all ${shared ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300'}`}
+          >
+            {shared ? <><Copy size={12} /> Zkopírováno</> : <><Share2 size={12} /> Sdílet</>}
+          </button>
+        </div>
         <div className="grid grid-cols-2 gap-3 text-sm">
           <InfoRow label="Loď" value={voyage.boatName || '—'} />
           <InfoRow label="LOA" value={voyage.boatLoa ? `${voyage.boatLoa} m` : '—'} />

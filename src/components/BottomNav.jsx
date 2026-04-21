@@ -1,12 +1,12 @@
 import { NavLink } from 'react-router-dom'
-import { Home, Anchor, Wallet, Map, ShoppingCart, Wrench } from 'lucide-react'
+import { Home, Anchor, Wallet, Map, BookOpen, Wrench } from 'lucide-react'
 
 const tabs = [
   { to: '/', icon: Home, label: 'Přehled' },
   { to: '/voyage', icon: Anchor, label: 'Výprava' },
   { to: '/expenses', icon: Wallet, label: 'Náklady' },
   { to: '/route', icon: Map, label: 'Trasa' },
-  { to: '/supplies', icon: ShoppingCart, label: 'Zásoby' },
+  { to: '/log', icon: BookOpen, label: 'Deník' },
   { to: '/tools', icon: Wrench, label: 'Nástroje' },
 ]
 

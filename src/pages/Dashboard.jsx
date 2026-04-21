@@ -322,7 +322,7 @@ export default function Dashboard() {
             <QuickLink icon={<Users size={18} className="text-ocean-500" />} label="Posádka" sub={`${active.crew?.length ?? 0} členů`} to="/voyage" />
             <QuickLink icon={<Wallet size={18} className="text-amber-500" />} label="Přidat výdaj" sub="Rozdělit náklady" to="/expenses" state={{ openAdd: true }} />
             <QuickLink icon={<Map size={18} className="text-emerald-500" />} label="Trasa" sub="Waypoints & čas" to="/route" />
-            <QuickLink icon={<Wind size={18} className="text-purple-500" />} label="Deník" sub="Záznamy plavby" to="/log" />
+            <QuickLink icon={<Wind size={18} className="text-purple-500" />} label="Lodní deník" sub="Záznamy plavby" to="/log" />
           </div>
         </div>
       )}

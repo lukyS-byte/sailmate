@@ -8,12 +8,14 @@ import ExpensesPage from './pages/ExpensesPage'
 import RoutePage from './pages/RoutePage'
 import SuppliesPage from './pages/SuppliesPage'
 import ToolsPage from './pages/ToolsPage'
+import LogPage from './pages/LogPage'
 import AuthPage from './pages/AuthPage'
+import SharePage from './pages/SharePage'
 import { supabase } from './lib/supabase'
 import useStore from './store/useStore'
 
 export default function App() {
-  const [user, setUser] = useState(undefined) // undefined = loading
+  const [user, setUser] = useState(undefined)
   const saveTimer = useRef(null)
   const { importData, clearData, getSnapshot } = useStore()
 
@@ -54,7 +56,6 @@ export default function App() {
     return () => subscription.unsubscribe()
   }, [])
 
-  // Auto-save to Supabase on store changes (debounced 2s)
   useEffect(() => {
     if (!user) return
     const unsub = useStore.subscribe(() => {
@@ -66,6 +67,15 @@ export default function App() {
       clearTimeout(saveTimer.current)
     }
   }, [user])
+
+  // Public share page — no auth required
+  if (window.location.pathname.startsWith('/share/')) {
+    return (
+      <Routes>
+        <Route path="/share/:token" element={<SharePage />} />
+      </Routes>
+    )
+  }
 
   if (user === undefined) {
     return (
@@ -86,6 +96,8 @@ export default function App() {
         <Route path="/route" element={<RoutePage />} />
         <Route path="/supplies" element={<SuppliesPage />} />
         <Route path="/tools" element={<ToolsPage />} />
+        <Route path="/log" element={<LogPage />} />
+        <Route path="/share/:token" element={<SharePage />} />
       </Routes>
     </Layout>
   )
