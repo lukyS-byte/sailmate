@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Plus, Trash2, UserPlus, Anchor, Check, Share2, Copy, Pencil } from 'lucide-react'
+import { Plus, Trash2, UserPlus, Anchor, Check, Share2, Copy, Pencil, Users2, RefreshCw } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import useStore from '../store/useStore'
 import Modal from '../components/Modal'
@@ -164,6 +164,10 @@ export default function VoyagePage() {
   const [confirmDelete, setConfirmDelete] = useState(false)
   const [charterAdded, setCharterAdded] = useState(false)
   const [shared, setShared] = useState(false)
+  const [inviteCode, setInviteCode] = useState(null)
+  const [codeCopied, setCodeCopied] = useState(false)
+  const [syncing, setSyncing] = useState(false)
+  const [syncCount, setSyncCount] = useState(null)
   const navigate = useNavigate()
   const { voyages, activeVoyageId, updateVoyage, removeCrewMember, deleteVoyage, addExpense, expenses } = useStore()
 
@@ -174,6 +178,42 @@ export default function VoyagePage() {
   const handleDelete = () => {
     deleteVoyage(activeVoyageId)
     navigate('/')
+  }
+
+  const generateInviteCode = async () => {
+    if (!voyage) return
+    const code = Math.random().toString(36).substr(2, 6).toUpperCase()
+    setInviteCode(code)
+    const { data: { session } } = await supabase.auth.getSession()
+    supabase.from('voyage_invites').upsert({
+      code,
+      owner_id: session.user.id,
+      voyage_data: voyage,
+      updated_at: new Date().toISOString(),
+    }).then(({ error }) => { if (error) console.error('invite upsert:', error.message) })
+  }
+
+  const copyInviteLink = () => {
+    const url = `${window.location.origin}/join?code=${inviteCode}`
+    navigator.clipboard.writeText(url)
+    setCodeCopied(true)
+    setTimeout(() => setCodeCopied(false), 2500)
+  }
+
+  const syncCrewExpenses = async () => {
+    if (!inviteCode) return
+    setSyncing(true)
+    const { data } = await supabase
+      .from('crew_expenses')
+      .select('*')
+      .eq('code', inviteCode)
+    setSyncing(false)
+    if (!data?.length) { setSyncCount(0); return }
+    const existingIds = expenses.map((e) => e.crewExpenseId).filter(Boolean)
+    const newOnes = data.filter((row) => !existingIds.includes(row.id))
+    newOnes.forEach((row) => addExpense({ ...row.data, crewExpenseId: row.id }))
+    setSyncCount(newOnes.length)
+    setTimeout(() => setSyncCount(null), 3000)
   }
 
   const handleShare = async () => {
@@ -321,6 +361,42 @@ export default function VoyagePage() {
           </button>
         </div>
       )}
+
+      {/* Crew invite */}
+      <div className="card space-y-3">
+        <div className="flex items-center gap-2">
+          <Users2 size={16} className="text-ocean-500" />
+          <p className="font-semibold text-sm text-slate-700 dark:text-slate-200">Pozvat posádku</p>
+        </div>
+        {!inviteCode ? (
+          <button onClick={generateInviteCode} className="btn-ocean w-full text-sm">
+            Vygenerovat kód
+          </button>
+        ) : (
+          <div className="space-y-2">
+            <div className="flex items-center gap-2">
+              <div className="flex-1 bg-slate-50 dark:bg-slate-700 rounded-xl px-4 py-3 text-center">
+                <p className="text-2xl font-bold tracking-widest text-navy-800 dark:text-white">{inviteCode}</p>
+              </div>
+              <button
+                onClick={copyInviteLink}
+                className={`flex items-center gap-1.5 rounded-xl px-4 py-3 text-sm font-medium transition-all ${codeCopied ? 'bg-emerald-100 text-emerald-700' : 'bg-ocean-500 text-white'}`}
+              >
+                {codeCopied ? <><Check size={14} /> Zkopírováno</> : <><Copy size={14} /> Kopírovat odkaz</>}
+              </button>
+            </div>
+            <p className="text-xs text-slate-400 text-center">Pošli odkaz posádce — přidají výdaje přes prohlížeč</p>
+            <button
+              onClick={syncCrewExpenses}
+              disabled={syncing}
+              className="w-full flex items-center justify-center gap-2 rounded-xl border border-ocean-200 text-ocean-600 py-2 text-sm font-medium hover:bg-ocean-50 transition-colors"
+            >
+              <RefreshCw size={14} className={syncing ? 'animate-spin' : ''} />
+              {syncing ? 'Načítám...' : syncCount !== null ? `Načteno ${syncCount} nových výdajů` : 'Načíst výdaje posádky'}
+            </button>
+          </div>
+        )}
+      </div>
 
       {/* Delete voyage */}
       <button

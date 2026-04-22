@@ -11,6 +11,7 @@ import ToolsPage from './pages/ToolsPage'
 import LogPage from './pages/LogPage'
 import AuthPage from './pages/AuthPage'
 import SharePage from './pages/SharePage'
+import JoinPage from './pages/JoinPage'
 import { supabase } from './lib/supabase'
 import useStore from './store/useStore'
 
@@ -68,13 +69,9 @@ export default function App() {
     }
   }, [user])
 
-  // Public share page — no auth required
+  // Public pages — no auth required
   if (window.location.pathname.startsWith('/share/')) {
-    return (
-      <Routes>
-        <Route path="/share/:token" element={<SharePage />} />
-      </Routes>
-    )
+    return <Routes><Route path="/share/:token" element={<SharePage />} /></Routes>
   }
 
   if (user === undefined) {
@@ -98,6 +95,7 @@ export default function App() {
         <Route path="/tools" element={<ToolsPage />} />
         <Route path="/log" element={<LogPage />} />
         <Route path="/share/:token" element={<SharePage />} />
+        <Route path="/join" element={<JoinPage />} />
       </Routes>
     </Layout>
   )

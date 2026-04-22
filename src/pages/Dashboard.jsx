@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Anchor, Users, Wallet, Map, Wind, Calendar, ChevronRight, Plus, Sailboat } from 'lucide-react'
+import { Anchor, Users, Wallet, Map, Wind, Calendar, ChevronRight, Plus, Sailboat, Users2 } from 'lucide-react'
 import useStore from '../store/useStore'
 import { splitExpenses, formatCurrency } from '../utils/calc'
 import Modal from '../components/Modal'
@@ -355,6 +355,21 @@ export default function Dashboard() {
           </div>
         </div>
       )}
+
+      {/* Join a voyage */}
+      <button
+        onClick={() => navigate('/join')}
+        className="w-full card flex items-center gap-3 text-left hover:border-ocean-300 transition-colors"
+      >
+        <div className="w-9 h-9 rounded-xl bg-slate-50 dark:bg-slate-700 flex items-center justify-center flex-shrink-0">
+          <Users2 size={18} className="text-ocean-500" />
+        </div>
+        <div className="flex-1">
+          <p className="text-sm font-semibold">Připojit se k výpravě</p>
+          <p className="text-[11px] text-slate-400">Zadej kód od kapitána</p>
+        </div>
+        <ChevronRight size={16} className="text-slate-300" />
+      </button>
 
       {showNew && <NewVoyageModal onClose={() => setShowNew(false)} />}
     </div>
