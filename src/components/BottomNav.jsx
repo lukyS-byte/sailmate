@@ -1,5 +1,5 @@
 import { NavLink } from 'react-router-dom'
-import { Home, Anchor, Wallet, Map, BookOpen } from 'lucide-react'
+import { Home, Anchor, Wallet, Map, BookOpen, Trophy } from 'lucide-react'
 
 const tabs = [
   { to: '/', icon: Home, label: 'Přehled' },
@@ -7,6 +7,7 @@ const tabs = [
   { to: '/expenses', icon: Wallet, label: 'Náklady' },
   { to: '/route', icon: Map, label: 'Trasa' },
   { to: '/log', icon: BookOpen, label: 'Deník' },
+  { to: '/regata', icon: Trophy, label: 'Regata' },
 ]
 
 export default function BottomNav() {

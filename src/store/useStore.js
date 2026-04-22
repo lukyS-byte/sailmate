@@ -11,6 +11,7 @@ const useStore = create(
       waypoints: [],
       supplies: [],
       logbook: [],
+      regattas: [],
       activeVoyageId: null,
 
       // ── Voyage ──────────────────────────────────────────
@@ -28,6 +29,7 @@ const useStore = create(
           waypoints: s.waypoints.filter((w) => w.voyageId !== id),
           supplies: s.supplies.filter((x) => x.voyageId !== id),
           logbook: s.logbook.filter((l) => l.voyageId !== id),
+          regattas: s.regattas.filter((r) => r.voyageId !== id),
           activeVoyageId: s.activeVoyageId === id ? null : s.activeVoyageId,
         })),
       setActiveVoyage: (id) => set({ activeVoyageId: id }),
@@ -96,6 +98,12 @@ const useStore = create(
       getVoyageSupplies: (voyageId) => get().supplies.filter((x) => x.voyageId === voyageId),
 
 
+      // ── Regattas ────────────────────────────────────────
+      addRegatta: (data) =>
+        set((s) => ({ regattas: [...s.regattas, { ...data, id: data.id ?? uid(), createdAt: new Date().toISOString() }] })),
+      deleteRegatta: (id) =>
+        set((s) => ({ regattas: s.regattas.filter((r) => r.id !== id) })),
+
       // ── Logbook ─────────────────────────────────────────
       addLogEntry: (data) =>
         set((s) => ({
@@ -112,6 +120,7 @@ const useStore = create(
       importData: (data) =>
         set({
           voyages: data.voyages ?? [],
+          regattas: data.regattas ?? [],
           expenses: data.expenses ?? [],
           waypoints: data.waypoints ?? [],
           supplies: data.supplies ?? [],
@@ -119,10 +128,10 @@ const useStore = create(
           activeVoyageId: data.activeVoyageId ?? null,
         }),
       clearData: () =>
-        set({ voyages: [], expenses: [], waypoints: [], supplies: [], logbook: [], activeVoyageId: null }),
+        set({ voyages: [], expenses: [], waypoints: [], supplies: [], logbook: [], regattas: [], activeVoyageId: null }),
       getSnapshot: () => {
-        const { voyages, expenses, waypoints, supplies, logbook, activeVoyageId } = get()
-        return { voyages, expenses, waypoints, supplies, logbook, activeVoyageId }
+        const { voyages, expenses, waypoints, supplies, logbook, regattas, activeVoyageId } = get()
+        return { voyages, expenses, waypoints, supplies, logbook, regattas, activeVoyageId }
       },
     }),
     { name: 'sailmate-v1' }
