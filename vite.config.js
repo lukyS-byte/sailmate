@@ -63,14 +63,33 @@ function claudeProxyPlugin() {
               source: { type: 'base64', media_type: 'image/jpeg', data: b64 },
             }))
 
-            const prompt = `Analyzuj závodní pokyny (Sailing Instructions). Vrať JEN validní JSON bez markdown:
-{"event":"název regaty","location":"místo","dates":"termín","races":[{"number":1,"date":"YYYY-MM-DD","startTime":"HH:MM","distanceNm":číslo_nebo_null,"windNotes":"stručný popis nebo null","pageIndex":číslo_0_based}]}
+            const prompt = `Jsi expert na plachetnicové závody. Pečlivě analyzuj tyto stránky závodních pokynů (Sailing Instructions) — prohlédni si obrázky i text.
 
-pageIndex = index stránky PDF (0 = první stránka) kde je schéma/info pro tuto rozjížďku. Pokud jsou všechny rozjížďky na jedné stránce, dej jim stejný pageIndex. Pokud nevíš, dej pageIndex 0.
+Vrať JEN validní JSON bez markdown, v tomto formátu:
+{
+  "event": "název regaty",
+  "location": "místo konání",
+  "dates": "termín konání",
+  "generalNotes": "2-3 věty — nejdůležitější obecné info: organizátor, kontakt, zvláštní pravidla, bezpečnost",
+  "importantPageIndexes": [seznam čísel stránek 0-based které obsahují schémata tratí, mapy nebo diagramy bójek],
+  "races": [
+    {
+      "number": 1,
+      "date": "YYYY-MM-DD nebo null",
+      "startTime": "HH:MM nebo null",
+      "distanceNm": číslo nebo null,
+      "courseType": "typ tratě např. triangle, windward-leeward, coastal nebo null",
+      "marks": "stručný popis bójek a průjezdů nebo null",
+      "notes": "specifické pokyny pro tuto rozjížďku nebo null",
+      "windNotes": "poznámky k větru nebo null",
+      "pageIndex": číslo 0-based — index stránky s nejrelevantnějším schématem pro tuto rozjížďku
+    }
+  ]
+}
 
-Pravidla: races max 15. Vrať POUZE JSON, žádný jiný text.
+Pravidla: races max 15, importantPageIndexes max 8. Vrať POUZE JSON, žádný jiný text.
 
-${text ? `Text:\n${text.slice(0, 8000)}` : ''}`
+${text ? `Text z PDF:\n${text.slice(0, 6000)}` : ''}`
 
             const upstream = await fetch('https://api.anthropic.com/v1/messages', {
               method: 'POST',
