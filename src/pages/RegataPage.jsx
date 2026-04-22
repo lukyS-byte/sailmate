@@ -34,80 +34,122 @@ async function extractPdfData(file) {
   return { displayImages, pageTexts }
 }
 
-// Analýza přímo v prohlížeči — bez API klíče
+// ─── Client-side parser — bez API klíče ────────────────────────────────────
+
+function charToPage(index, pageTexts) {
+  let cum = 0
+  for (let p = 0; p < pageTexts.length; p++) {
+    cum += pageTexts[p].length + 1
+    if (index < cum) return p
+  }
+  return pageTexts.length - 1
+}
+
+function extractTimeDate(ctx) {
+  const timeM = ctx.match(/\b([01]?\d|2[0-3])[:\.]([0-5]\d)\b/)
+  const startTime = timeM ? `${timeM[1].padStart(2, '0')}:${timeM[2]}` : null
+
+  const dM = ctx.match(/(\d{1,2})\s*[.\-\/]\s*(\d{1,2})(?:\s*[.\-\/]\s*(\d{2,4}))?/)
+  let date = null
+  if (dM) {
+    const y = dM[3] ? (dM[3].length === 2 ? '20' + dM[3] : dM[3]) : new Date().getFullYear()
+    const mo = parseInt(dM[2]), dy = parseInt(dM[1])
+    if (mo >= 1 && mo <= 12 && dy >= 1 && dy <= 31)
+      date = `${y}-${String(mo).padStart(2, '0')}-${String(dy).padStart(2, '0')}`
+  }
+  const nmM = ctx.match(/(\d+(?:[.,]\d+)?)\s*(?:nm|NM|nmi)/i)
+  const distanceNm = nmM ? parseFloat(nmM[1].replace(',', '.')) : null
+  return { startTime, date, distanceNm }
+}
+
 function parseRegatta(pageTexts) {
   const fullText = pageTexts.join('\n')
-  const lines = fullText.split(/\n|(?<=\.)\s+/).map(l => l.trim()).filter(Boolean)
 
-  // === Název akce ===
-  const event = lines.find(l => l.length > 4 && l.length < 90 && !/^\d/.test(l)) ?? 'Regata'
+  // === Název — první smysluplná věta na první stránce ===
+  const titleLine = (pageTexts[0] ?? '')
+    .split(/\s{2,}|\n/)
+    .map(s => s.trim())
+    .find(s => s.length > 4 && s.length < 100 && /[a-zA-ZčšžýáíéúůóđČŠŽÝÁÍÉÚŮÓĐ]/.test(s))
+  const event = titleLine ?? 'Regata'
 
   // === Místo ===
-  const locMatch = fullText.match(/(?:místo|venue|location|marina|port|přístav)[:\s]+([^\n,\.]{3,50})/i)
-  const location = locMatch ? locMatch[1].trim() : null
+  const locM = fullText.match(
+    /(?:místo|venue|location|marina|přístav|port|club|klub|yacht\s*club)[:\s]+([^\n,\.]{3,50})/i
+  )
+  const location = locM?.[1]?.trim() ?? null
 
-  // === Termín ===
-  const dateMatch = fullText.match(/\d{1,2}[\.\-\/]\d{1,2}[\.\-\/]?(?:20\d{2})?/)
-  const dates = dateMatch ? dateMatch[0] : null
+  // === Termín — první výskyt data ===
+  const dateM = fullText.match(/\d{1,2}\s*[.\-\/]\s*\d{1,2}\s*[.\-\/]?\s*(?:20\d{2})?/)
+  const dates = dateM?.[0] ?? null
 
-  // === Stránky se schématy (nízká hustota textu = pravděpodobně obrázek/diagram) ===
-  const avgLen = pageTexts.reduce((s, t) => s + t.length, 0) / Math.max(pageTexts.length, 1)
-  const importantPageIndexes = pageTexts
-    .map((t, i) => ({ i, len: t.length }))
-    .filter(({ len }) => len < avgLen * 0.5 && len > 10)
+  // === Stránky se schématy — nízká hustota textu ===
+  const lens = pageTexts.map(t => t.replace(/\s+/g, '').length)
+  const avg = lens.reduce((a, b) => a + b, 0) / Math.max(lens.length, 1)
+  const importantPageIndexes = lens
+    .map((len, i) => ({ i, len }))
+    .filter(({ len }) => len > 20 && len < avg * 0.55)
     .map(({ i }) => i)
-    .slice(0, 6)
+    .slice(0, 8)
 
-  // === Rozjížďky ===
-  const races = []
+  // === Rozjížďky — 5 strategií ===
   const seen = new Set()
-  // Hledáme "Race N", "Rozjížďka N", "R N", "závod N" nebo jen samotné číslo v sekci
-  const raceRx = /(?:race|rozjížďka|závod|start)\s*[:\-]?\s*(\d{1,2})\b/gi
-  let m
-  while ((m = raceRx.exec(fullText)) !== null) {
-    const num = parseInt(m[1])
-    if (num < 1 || num > 20 || seen.has(num)) continue
+  const races = []
+
+  const addRace = (num, index, ctxOverride) => {
+    if (num < 1 || num > 25 || seen.has(num)) return
     seen.add(num)
-
-    // Kontext kolem nalezené rozjížďky
-    const ctx = fullText.slice(Math.max(0, m.index - 50), m.index + 400)
-
-    // Čas startu: HH:MM nebo HH.MM
-    const timeRx = /\b([01]?\d|2[0-3])[:\.]([0-5]\d)\b/g
-    const times = [...ctx.matchAll(timeRx)]
-    const startTime = times.length ? `${times[0][1].padStart(2,'0')}:${times[0][2]}` : null
-
-    // Datum: D.M nebo D.M.YYYY
-    const dRx = /(\d{1,2})[.\-\/](\d{1,2})(?:[.\-\/](\d{2,4}))?/
-    const dMatch = ctx.match(dRx)
-    let date = null
-    if (dMatch) {
-      const y = dMatch[3] ? (dMatch[3].length === 2 ? '20' + dMatch[3] : dMatch[3]) : new Date().getFullYear()
-      date = `${y}-${String(dMatch[2]).padStart(2,'0')}-${String(dMatch[1]).padStart(2,'0')}`
-    }
-
-    // Vzdálenost: číslo před nm/NM
-    const nmMatch = ctx.match(/(\d+(?:[.,]\d+)?)\s*(?:nm|NM|nmi)/i)
-    const distanceNm = nmMatch ? parseFloat(nmMatch[1].replace(',', '.')) : null
-
-    // Stránka — odhadneme podle pozice v textu
-    const charPos = m.index
-    const totalChars = fullText.length
-    const pageIndex = Math.min(
-      Math.floor((charPos / totalChars) * pageTexts.length),
-      pageTexts.length - 1
-    )
-
+    const ctx = ctxOverride ?? fullText.slice(Math.max(0, index - 80), index + 500)
+    const { startTime, date, distanceNm } = extractTimeDate(ctx)
+    const pageIndex = charToPage(index, pageTexts)
     races.push({ number: num, date, startTime, distanceNm, courseType: null, marks: null, notes: null, windNotes: null, pageIndex })
   }
 
-  races.sort((a, b) => a.number - b.number)
+  // Strategie 1: explicitní klíčová slova (CZ + EN)
+  const kwRx = /(?:rozjížďka|závod|race|start|jízda|kolo)\s*[:\-#.]?\s*(\d{1,2})\b/gi
+  let m
+  while ((m = kwRx.exec(fullText)) !== null) addRace(parseInt(m[1]), m.index)
 
-  // Pokud žádné rozjížďky nenajdeme, vytvoříme alespoň jednu placeholder
-  if (races.length === 0) {
-    races.push({ number: 1, date: null, startTime: null, distanceNm: null, courseType: null, marks: null, notes: null, windNotes: null, pageIndex: 0 })
+  // Strategie 2: "R.1", "R-1", "R1" (zkratky v plánech)
+  if (seen.size === 0) {
+    const rAbbrRx = /\bR[.\-\s]?(\d{1,2})\b/g
+    while ((m = rAbbrRx.exec(fullText)) !== null) addRace(parseInt(m[1]), m.index)
   }
 
+  // Strategie 3: tabulka programu — číslo + čas na řádku (např. "1  15.6.  10:00")
+  if (seen.size === 0) {
+    const schedRx = /^[\s]*(\d{1,2})[\s,.\-]+(?:\d{1,2}[\s,.\-]+\d{1,4}[\s,.\-]+)?([01]?\d|2[0-3])[:\.]([0-5]\d)/gm
+    while ((m = schedRx.exec(fullText)) !== null) {
+      const num = parseInt(m[1])
+      if (num >= 1 && num <= 20) addRace(num, m.index)
+    }
+  }
+
+  // Strategie 4: hledáme START časy — každý unikátní čas = pravděpodobně jedna rozjížďka
+  if (seen.size === 0) {
+    const times = [...fullText.matchAll(/\b([01]?\d|2[0-3])[:\.]([0-5]\d)\b/g)]
+    const uniqueTimes = [...new Set(times.map(t => `${t[1]}:${t[2]}`))]
+    if (uniqueTimes.length > 0 && uniqueTimes.length <= 20) {
+      uniqueTimes.forEach((_, i) => {
+        const t = times[i]
+        if (t) addRace(i + 1, t.index)
+      })
+    }
+  }
+
+  // Strategie 5 (fallback): jedna karta pro každou diagram stránku
+  if (seen.size === 0) {
+    if (importantPageIndexes.length > 0) {
+      importantPageIndexes.forEach((pi, i) => {
+        const pageStart = pageTexts.slice(0, pi).reduce((s, t) => s + t.length + 1, 0)
+        addRace(i + 1, pageStart)
+      })
+    } else {
+      // Absolutní fallback
+      races.push({ number: 1, date: null, startTime: null, distanceNm: null, courseType: null, marks: null, notes: null, windNotes: null, pageIndex: 0 })
+    }
+  }
+
+  races.sort((a, b) => a.number - b.number)
   return { event, location, dates, generalNotes: null, importantPageIndexes, races }
 }
 
@@ -224,23 +266,25 @@ export default function RegataPage() {
       {/* Regatta list */}
       {voyageRegattas.map((regatta) => {
         const imgs = pageImages[regatta.id] ?? []
-        const importantImgs = (regatta.importantPageIndexes ?? [])
-          .map((idx) => imgs[idx])
-          .filter(Boolean)
 
         return (
           <div key={regatta.id} className="mb-8">
-            {/* Regatta title bar */}
-            <div className="flex items-start justify-between mb-3">
+            {/* Regatta header */}
+            <div className="flex items-start justify-between mb-4">
               <div className="flex-1 min-w-0">
                 <h2 className="font-bold text-lg text-navy-800 dark:text-white leading-tight">
                   {regatta.event || 'Regata'}
                 </h2>
                 {(regatta.location || regatta.dates) && (
-                  <p className="text-xs text-slate-500 mt-0.5">
-                    {[regatta.location, regatta.dates].filter(Boolean).join(' · ')}
+                  <p className="text-sm text-slate-500 mt-0.5 flex items-center gap-1.5">
+                    {regatta.location && <><MapIcon size={12} className="shrink-0" />{regatta.location}</>}
+                    {regatta.location && regatta.dates && <span>·</span>}
+                    {regatta.dates && regatta.dates}
                   </p>
                 )}
+                <p className="text-xs text-slate-400 mt-1">
+                  {regatta.races?.length ?? 0} rozjížděk · {imgs.length} stran PDF
+                </p>
               </div>
               <button
                 className="btn-ghost p-2 text-red-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 shrink-0 ml-2"
@@ -250,146 +294,146 @@ export default function RegataPage() {
               </button>
             </div>
 
-            {/* General notes */}
-            {regatta.generalNotes && (
-              <div className="mb-3 rounded-xl bg-ocean-50 dark:bg-ocean-900/20 border border-ocean-100 dark:border-ocean-800 px-4 py-3 flex gap-3">
-                <Info size={15} className="text-ocean-500 shrink-0 mt-0.5" />
-                <p className="text-sm text-slate-700 dark:text-slate-300 leading-relaxed">
-                  {regatta.generalNotes}
-                </p>
-              </div>
-            )}
+            {/* Race cards — každá rozjížďka jako karta s obrázkem */}
+            <div className="space-y-4">
+              {(regatta.races ?? []).map((race) => {
+                const key = `${regatta.id}-${race.number}`
+                const isOpen = expanded.has(key)
+                // Prioritizujeme diagram stránku, fallback na stránku podle pageIndex
+                const diagramPages = regatta.importantPageIndexes ?? []
+                const pageImg = (
+                  imgs[diagramPages[race.number - 1]] ??
+                  imgs[race.pageIndex ?? 0] ??
+                  imgs[0] ??
+                  null
+                )
 
-            {/* Important diagrams / maps */}
-            {importantImgs.length > 0 && (
-              <div className="mb-4">
-                <div className="flex items-center gap-1.5 mb-2">
-                  <MapIcon size={13} className="text-slate-400" />
-                  <span className="text-xs font-semibold text-slate-500 uppercase tracking-wide">
-                    Schémata tratí
-                  </span>
-                </div>
-                <div className="flex gap-2 overflow-x-auto pb-1">
-                  {importantImgs.map((img, i) => (
-                    <div
-                      key={i}
-                      className="shrink-0 rounded-xl overflow-hidden cursor-zoom-in border border-slate-200 dark:border-slate-700"
-                      style={{ width: importantImgs.length === 1 ? '100%' : '80vw', maxWidth: 480 }}
-                      onClick={() => setLightbox(`data:image/jpeg;base64,${img}`)}
-                    >
-                      <img
-                        src={`data:image/jpeg;base64,${img}`}
-                        alt={`Schéma ${i + 1}`}
-                        className="w-full block"
-                      />
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
+                return (
+                  <div key={key} className="card overflow-hidden p-0 shadow-sm">
+                    {/* PDF stránka — vždy viditelná nahoře */}
+                    {pageImg ? (
+                      <div
+                        className="relative cursor-zoom-in bg-slate-100 dark:bg-slate-800"
+                        onClick={() => setLightbox(`data:image/jpeg;base64,${pageImg}`)}
+                      >
+                        <img
+                          src={`data:image/jpeg;base64,${pageImg}`}
+                          alt={`Rozjížďka ${race.number}`}
+                          className="w-full block max-h-64 object-cover object-top"
+                        />
+                        {/* Badge rozjížďky přes obrázek */}
+                        <div className="absolute top-3 left-3 flex items-center gap-2">
+                          <span className="inline-flex items-center justify-center w-9 h-9 rounded-full bg-ocean-500 text-white text-base font-bold shadow-lg">
+                            {race.number}
+                          </span>
+                        </div>
+                        <div className="absolute top-3 right-3 bg-black/40 text-white rounded-full p-1.5">
+                          <ZoomIn size={14} />
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="bg-slate-100 dark:bg-slate-800 h-28 flex items-center justify-center">
+                        <span className="inline-flex items-center justify-center w-12 h-12 rounded-full bg-ocean-500 text-white text-xl font-bold">
+                          {race.number}
+                        </span>
+                      </div>
+                    )}
 
-            {/* Race cards */}
-            {(regatta.races ?? []).map((race) => {
-              const key = `${regatta.id}-${race.number}`
-              const isOpen = expanded.has(key)
-              const pageImg = imgs[race.pageIndex ?? 0] ?? imgs[0] ?? null
-
-              return (
-                <div key={key} className="card mb-3 overflow-hidden p-0">
-                  {/* Race header */}
-                  <button
-                    className="w-full flex items-center gap-3 px-4 py-3 text-left hover:bg-slate-50 dark:hover:bg-slate-800/40 transition-colors"
-                    onClick={() => toggle(key)}
-                  >
-                    <span className="inline-flex items-center justify-center w-8 h-8 rounded-full bg-ocean-500 text-white text-sm font-bold shrink-0">
-                      {race.number}
-                    </span>
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <p className="font-semibold text-navy-800 dark:text-white text-sm">
+                    {/* Info sekce pod obrázkem */}
+                    <div className="px-4 pt-3 pb-1">
+                      <div className="flex items-center justify-between">
+                        <h3 className="font-bold text-navy-800 dark:text-white text-base">
                           Rozjížďka {race.number}
-                        </p>
-                        {race.courseType && (
-                          <span className="text-xs bg-slate-100 dark:bg-slate-700 text-slate-500 dark:text-slate-400 px-2 py-0.5 rounded-full">
-                            {race.courseType}
-                          </span>
-                        )}
-                      </div>
-                      <div className="flex flex-wrap gap-x-3 gap-y-0 mt-0.5">
-                        {race.date && (
-                          <span className="text-xs text-slate-500">{race.date}</span>
-                        )}
-                        {race.startTime && (
-                          <span className="text-xs text-slate-500 flex items-center gap-1">
-                            <Clock size={10} />{race.startTime}
-                          </span>
-                        )}
-                        {race.distanceNm != null && (
-                          <span className="text-xs text-slate-500 flex items-center gap-1">
-                            <Ruler size={10} />{race.distanceNm} nm
-                          </span>
-                        )}
-                      </div>
-                    </div>
-                    {isOpen
-                      ? <ChevronUp size={16} className="text-slate-400 shrink-0" />
-                      : <ChevronDown size={16} className="text-slate-400 shrink-0" />}
-                  </button>
-
-                  {/* Expanded content */}
-                  {isOpen && (
-                    <div className="border-t border-slate-100 dark:border-slate-700">
-                      {/* Info pills */}
-                      {(race.windNotes || race.marks || race.notes) && (
-                        <div className="px-4 py-3 space-y-2">
-                          {race.windNotes && (
-                            <div className="flex items-start gap-2 text-xs text-slate-600 dark:text-slate-400">
-                              <Wind size={12} className="text-ocean-500 shrink-0 mt-0.5" />
-                              <span>{race.windNotes}</span>
-                            </div>
-                          )}
-                          {race.marks && (
-                            <div className="flex items-start gap-2 text-xs text-slate-600 dark:text-slate-400">
-                              <Navigation size={12} className="text-amber-500 shrink-0 mt-0.5" />
-                              <span>{race.marks}</span>
-                            </div>
-                          )}
-                          {race.notes && (
-                            <div className="flex items-start gap-2 text-xs text-slate-600 dark:text-slate-400">
-                              <Flag size={12} className="text-slate-400 shrink-0 mt-0.5" />
-                              <span>{race.notes}</span>
-                            </div>
-                          )}
-                        </div>
-                      )}
-
-                      {/* PDF page image */}
-                      {pageImg ? (
-                        <div
-                          className="relative group cursor-zoom-in"
-                          onClick={() => setLightbox(`data:image/jpeg;base64,${pageImg}`)}
+                        </h3>
+                        <button
+                          className="text-slate-400 hover:text-slate-600 p-1"
+                          onClick={() => toggle(key)}
                         >
-                          <img
-                            src={`data:image/jpeg;base64,${pageImg}`}
-                            alt={`Schéma rozjížďky ${race.number}`}
-                            className="w-full block"
-                          />
-                          <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors flex items-center justify-center">
-                            <div className="bg-black/40 text-white rounded-full p-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                              <ZoomIn size={20} />
-                            </div>
+                          {isOpen ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
+                        </button>
+                      </div>
+
+                      {/* Rychlé info — vždy viditelné */}
+                      <div className="flex flex-wrap gap-3 mt-2 mb-3">
+                        {race.date ? (
+                          <div className="flex items-center gap-1.5 text-sm text-slate-600 dark:text-slate-300">
+                            <span className="w-6 h-6 rounded-lg bg-ocean-50 dark:bg-ocean-900/30 flex items-center justify-center">
+                              <Flag size={12} className="text-ocean-500" />
+                            </span>
+                            {new Date(race.date + 'T00:00:00').toLocaleDateString('cs', { day: 'numeric', month: 'short' })}
                           </div>
-                        </div>
-                      ) : (
-                        <div className="px-4 py-6 text-center text-sm text-slate-400">
-                          Žádné schéma k dispozici
-                        </div>
-                      )}
+                        ) : (
+                          <div className="flex items-center gap-1.5 text-sm text-slate-400">
+                            <span className="w-6 h-6 rounded-lg bg-slate-100 dark:bg-slate-700 flex items-center justify-center">
+                              <Flag size={12} />
+                            </span>
+                            Datum neznámé
+                          </div>
+                        )}
+
+                        {race.startTime ? (
+                          <div className="flex items-center gap-1.5 text-sm text-slate-600 dark:text-slate-300">
+                            <span className="w-6 h-6 rounded-lg bg-amber-50 dark:bg-amber-900/30 flex items-center justify-center">
+                              <Clock size={12} className="text-amber-500" />
+                            </span>
+                            Start {race.startTime}
+                          </div>
+                        ) : (
+                          <div className="flex items-center gap-1.5 text-sm text-slate-400">
+                            <span className="w-6 h-6 rounded-lg bg-slate-100 dark:bg-slate-700 flex items-center justify-center">
+                              <Clock size={12} />
+                            </span>
+                            Čas neznámý
+                          </div>
+                        )}
+
+                        {race.distanceNm != null && (
+                          <div className="flex items-center gap-1.5 text-sm text-slate-600 dark:text-slate-300">
+                            <span className="w-6 h-6 rounded-lg bg-emerald-50 dark:bg-emerald-900/30 flex items-center justify-center">
+                              <Ruler size={12} className="text-emerald-500" />
+                            </span>
+                            {race.distanceNm} nm
+                          </div>
+                        )}
+
+                        {race.courseType && (
+                          <div className="flex items-center gap-1.5 text-sm text-slate-600 dark:text-slate-300">
+                            <span className="w-6 h-6 rounded-lg bg-purple-50 dark:bg-purple-900/30 flex items-center justify-center">
+                              <Navigation size={12} className="text-purple-500" />
+                            </span>
+                            {race.courseType}
+                          </div>
+                        )}
+                      </div>
                     </div>
-                  )}
-                </div>
-              )
-            })}
+
+                    {/* Rozbalitelné detaily */}
+                    {isOpen && (race.windNotes || race.marks || race.notes) && (
+                      <div className="border-t border-slate-100 dark:border-slate-700 px-4 py-3 space-y-2">
+                        {race.windNotes && (
+                          <div className="flex items-start gap-2 text-sm text-slate-600 dark:text-slate-400">
+                            <Wind size={13} className="text-ocean-500 shrink-0 mt-0.5" />
+                            <span>{race.windNotes}</span>
+                          </div>
+                        )}
+                        {race.marks && (
+                          <div className="flex items-start gap-2 text-sm text-slate-600 dark:text-slate-400">
+                            <Navigation size={13} className="text-amber-500 shrink-0 mt-0.5" />
+                            <span>{race.marks}</span>
+                          </div>
+                        )}
+                        {race.notes && (
+                          <div className="flex items-start gap-2 text-sm text-slate-600 dark:text-slate-400">
+                            <Info size={13} className="text-slate-400 shrink-0 mt-0.5" />
+                            <span>{race.notes}</span>
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                )
+              })}
+            </div>
           </div>
         )
       })}
