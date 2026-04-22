@@ -11,56 +11,104 @@ async function extractPdfData(file) {
   const pdf = await pdfjsLib.getDocument({ data: buf }).promise
   const numPages = Math.min(pdf.numPages, 20)
   const displayImages = []
-  const analysisImages = []
-  let text = ''
+  const pageTexts = []
 
   for (let i = 1; i <= numPages; i++) {
     const page = await pdf.getPage(i)
 
-    // Text — Array.from kvůli kompatibilitě s pdfjs-dist v5
+    // Text
     const content = await page.getTextContent()
     const items = Array.from(content.items ?? [])
-    text += items.map((it) => it.str ?? '').join(' ') + '\n'
+    pageTexts.push(items.map((it) => it.str ?? '').join(' '))
 
-    // Pomocná funkce pro render — pdfjs v4 vrací RenderTask.promise, v5 přímo Promise
-    const renderPage = async (canvas, viewport) => {
-      const task = page.render({ canvasContext: canvas.getContext('2d'), viewport })
-      await (task.promise ?? task)
-    }
-
-    // Display image — vysoká kvalita pro zobrazení
-    const vpDisplay = page.getViewport({ scale: 1.8 })
-    const cDisplay = document.createElement('canvas')
-    cDisplay.width = vpDisplay.width
-    cDisplay.height = vpDisplay.height
-    await renderPage(cDisplay, vpDisplay)
-    displayImages.push(cDisplay.toDataURL('image/jpeg', 0.82).split(',')[1])
-
-    // Analysis image — menší pro Claude (jen prvních 8 stránek)
-    if (i <= 8) {
-      const vpSmall = page.getViewport({ scale: 1.0 })
-      const cSmall = document.createElement('canvas')
-      cSmall.width = vpSmall.width
-      cSmall.height = vpSmall.height
-      await renderPage(cSmall, vpSmall)
-      analysisImages.push(cSmall.toDataURL('image/jpeg', 0.65).split(',')[1])
-    }
+    // Display image
+    const vp = page.getViewport({ scale: 1.8 })
+    const canvas = document.createElement('canvas')
+    canvas.width = vp.width
+    canvas.height = vp.height
+    const task = page.render({ canvasContext: canvas.getContext('2d'), viewport: vp })
+    await (task.promise ?? task)
+    displayImages.push(canvas.toDataURL('image/jpeg', 0.82).split(',')[1])
   }
 
-  return { displayImages, analysisImages, text: text.slice(0, 6000) }
+  return { displayImages, pageTexts }
 }
 
-async function analyzeRegatta(text, images) {
-  const res = await fetch('/api/analyze-regatta', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ images, text }),
-  })
-  if (!res.ok) {
-    const err = await res.json().catch(() => ({}))
-    throw new Error(err.error ?? `Chyba ${res.status}`)
+// Analýza přímo v prohlížeči — bez API klíče
+function parseRegatta(pageTexts) {
+  const fullText = pageTexts.join('\n')
+  const lines = fullText.split(/\n|(?<=\.)\s+/).map(l => l.trim()).filter(Boolean)
+
+  // === Název akce ===
+  const event = lines.find(l => l.length > 4 && l.length < 90 && !/^\d/.test(l)) ?? 'Regata'
+
+  // === Místo ===
+  const locMatch = fullText.match(/(?:místo|venue|location|marina|port|přístav)[:\s]+([^\n,\.]{3,50})/i)
+  const location = locMatch ? locMatch[1].trim() : null
+
+  // === Termín ===
+  const dateMatch = fullText.match(/\d{1,2}[\.\-\/]\d{1,2}[\.\-\/]?(?:20\d{2})?/)
+  const dates = dateMatch ? dateMatch[0] : null
+
+  // === Stránky se schématy (nízká hustota textu = pravděpodobně obrázek/diagram) ===
+  const avgLen = pageTexts.reduce((s, t) => s + t.length, 0) / Math.max(pageTexts.length, 1)
+  const importantPageIndexes = pageTexts
+    .map((t, i) => ({ i, len: t.length }))
+    .filter(({ len }) => len < avgLen * 0.5 && len > 10)
+    .map(({ i }) => i)
+    .slice(0, 6)
+
+  // === Rozjížďky ===
+  const races = []
+  const seen = new Set()
+  // Hledáme "Race N", "Rozjížďka N", "R N", "závod N" nebo jen samotné číslo v sekci
+  const raceRx = /(?:race|rozjížďka|závod|start)\s*[:\-]?\s*(\d{1,2})\b/gi
+  let m
+  while ((m = raceRx.exec(fullText)) !== null) {
+    const num = parseInt(m[1])
+    if (num < 1 || num > 20 || seen.has(num)) continue
+    seen.add(num)
+
+    // Kontext kolem nalezené rozjížďky
+    const ctx = fullText.slice(Math.max(0, m.index - 50), m.index + 400)
+
+    // Čas startu: HH:MM nebo HH.MM
+    const timeRx = /\b([01]?\d|2[0-3])[:\.]([0-5]\d)\b/g
+    const times = [...ctx.matchAll(timeRx)]
+    const startTime = times.length ? `${times[0][1].padStart(2,'0')}:${times[0][2]}` : null
+
+    // Datum: D.M nebo D.M.YYYY
+    const dRx = /(\d{1,2})[.\-\/](\d{1,2})(?:[.\-\/](\d{2,4}))?/
+    const dMatch = ctx.match(dRx)
+    let date = null
+    if (dMatch) {
+      const y = dMatch[3] ? (dMatch[3].length === 2 ? '20' + dMatch[3] : dMatch[3]) : new Date().getFullYear()
+      date = `${y}-${String(dMatch[2]).padStart(2,'0')}-${String(dMatch[1]).padStart(2,'0')}`
+    }
+
+    // Vzdálenost: číslo před nm/NM
+    const nmMatch = ctx.match(/(\d+(?:[.,]\d+)?)\s*(?:nm|NM|nmi)/i)
+    const distanceNm = nmMatch ? parseFloat(nmMatch[1].replace(',', '.')) : null
+
+    // Stránka — odhadneme podle pozice v textu
+    const charPos = m.index
+    const totalChars = fullText.length
+    const pageIndex = Math.min(
+      Math.floor((charPos / totalChars) * pageTexts.length),
+      pageTexts.length - 1
+    )
+
+    races.push({ number: num, date, startTime, distanceNm, courseType: null, marks: null, notes: null, windNotes: null, pageIndex })
   }
-  return res.json()
+
+  races.sort((a, b) => a.number - b.number)
+
+  // Pokud žádné rozjížďky nenajdeme, vytvoříme alespoň jednu placeholder
+  if (races.length === 0) {
+    races.push({ number: 1, date: null, startTime: null, distanceNm: null, courseType: null, marks: null, notes: null, windNotes: null, pageIndex: 0 })
+  }
+
+  return { event, location, dates, generalNotes: null, importantPageIndexes, races }
 }
 
 function ImageLightbox({ src, onClose }) {
@@ -104,9 +152,9 @@ export default function RegataPage() {
     setUploading(true)
     try {
       setUploadStep('Načítám PDF…')
-      const { displayImages, analysisImages, text } = await extractPdfData(file)
-      setUploadStep('Claude analyzuje závodní pokyny…')
-      const result = await analyzeRegatta(text, analysisImages)
+      const { displayImages, pageTexts } = await extractPdfData(file)
+      setUploadStep('Zpracovávám závodní pokyny…')
+      const result = parseRegatta(pageTexts)
       const regattaId = crypto.randomUUID()
       addRegatta({ voyageId: activeVoyageId, id: regattaId, ...result })
       setPageImages((prev) => ({ ...prev, [regattaId]: displayImages }))
