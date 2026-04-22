@@ -58,7 +58,7 @@ Vrať JEN validní JSON bez markdown:
 
 Vrať POUZE JSON, žádný jiný text.
 
-${text ? `Text z PDF:\n${text.slice(0, 15000)}` : ''}`
+${text ? `Text z PDF (každá strana označena --- Strana X ---):\n${text.slice(0, 25000)}` : ''}`
 
   try {
     const upstream = await fetch('https://api.anthropic.com/v1/messages', {

@@ -11,14 +11,22 @@ pdfjsLib.GlobalWorkerOptions.workerSrc = workerUrl
 async function extractPdfData(file) {
   const buf = await file.arrayBuffer()
   const pdf = await pdfjsLib.getDocument({ data: buf }).promise
-  const numPages = Math.min(pdf.numPages, 20)
+  const totalPages = pdf.numPages
+  const displayPages = Math.min(totalPages, 20)
   const displayImages = []
-  let text = ''
 
-  for (let i = 1; i <= numPages; i++) {
+  // Extrahuj TEXT ze VŠECH stránek (bez omezení) — schedule může být kdekoliv
+  let fullText = ''
+  for (let i = 1; i <= totalPages; i++) {
     const page = await pdf.getPage(i)
     const content = await page.getTextContent()
-    text += Array.from(content.items ?? []).map((it) => it.str ?? '').join(' ') + '\n'
+    fullText += `--- Strana ${i} ---\n`
+    fullText += Array.from(content.items ?? []).map((it) => it.str ?? '').join(' ') + '\n'
+  }
+
+  // Display images — jen prvních 20 stránek pro zobrazení v kartách
+  for (let i = 1; i <= displayPages; i++) {
+    const page = await pdf.getPage(i)
     const viewport = page.getViewport({ scale: 1.8 })
     const canvas = document.createElement('canvas')
     canvas.width = viewport.width
@@ -28,20 +36,8 @@ async function extractPdfData(file) {
     displayImages.push(canvas.toDataURL('image/jpeg', 0.82).split(',')[1])
   }
 
-  // Menší obrázky pro analýzu AI — max 4 stránky, nízká kvalita, aby nepřekročily Vercel limit 4.5 MB
-  const analysisImages = []
-  for (let i = 1; i <= Math.min(pdf.numPages, 4); i++) {
-    const page = await pdf.getPage(i)
-    const viewport = page.getViewport({ scale: 0.8 })
-    const canvas = document.createElement('canvas')
-    canvas.width = viewport.width
-    canvas.height = viewport.height
-    const task = page.render({ canvasContext: canvas.getContext('2d'), viewport })
-    await (task.promise ?? task)
-    analysisImages.push(canvas.toDataURL('image/jpeg', 0.5).split(',')[1])
-  }
-
-  return { displayImages, analysisImages, text: text.slice(0, 15000) }
+  // Analýza: nepošleme obrázky (text stačí na nalezení rozjížděk), šetříme payload
+  return { displayImages, analysisImages: [], text: fullText.slice(0, 25000) }
 }
 
 async function analyzeRegatta(text, images) {
