@@ -1,8 +1,147 @@
-import { useState } from 'react'
-import { Plus, Trash2, Map, Navigation, Clock, Anchor, Flag, GripVertical } from 'lucide-react'
+import { useState, useEffect, useRef } from 'react'
+import { Plus, Trash2, Map, Navigation, Clock, Anchor, Flag, Camera, X, Loader } from 'lucide-react'
+import L from 'leaflet'
+import { supabase } from '../lib/supabase'
 import useStore from '../store/useStore'
-import { nmBetween, hoursToETA, formatETA, estimatePortFee, formatCurrency, COUNTRIES } from '../utils/calc'
+import { nmBetween, hoursToETA, formatETA, estimatePortFee, COUNTRIES } from '../utils/calc'
 import Modal from '../components/Modal'
+
+const SHADOW = 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png'
+function makeIcon(color) {
+  return new L.Icon({
+    iconUrl: `https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-${color}.png`,
+    shadowUrl: SHADOW,
+    iconSize: [25, 41], iconAnchor: [12, 41], popupAnchor: [1, -34],
+  })
+}
+const ICONS = { start: makeIcon('blue'), end: makeIcon('green'), mid: makeIcon('grey') }
+
+function RouteMap({ waypoints }) {
+  const divRef = useRef(null)
+  const mapRef = useRef(null)
+
+  useEffect(() => {
+    if (!divRef.current) return
+    if (mapRef.current) { mapRef.current.remove(); mapRef.current = null }
+
+    const map = L.map(divRef.current, { zoomControl: true, scrollWheelZoom: true })
+    mapRef.current = map
+
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      attribution: '&copy; <a href="https://www.openstreetmap.org">OpenStreetMap</a>',
+    }).addTo(map)
+    L.tileLayer('https://tiles.openseamap.org/seamark/{z}/{x}/{y}.png', {
+      attribution: '&copy; <a href="https://www.openseamap.org">OpenSeaMap</a>',
+      opacity: 0.7,
+    }).addTo(map)
+
+    const pts = waypoints.filter((w) => w.lat && w.lng)
+    pts.forEach((wp, idx) => {
+      const icon = idx === 0 ? ICONS.start : idx === pts.length - 1 ? ICONS.end : ICONS.mid
+      const marker = L.marker([wp.lat, wp.lng], { icon }).addTo(map)
+      let popup = `<strong>${wp.name}</strong>`
+      if (wp.plannedArrival) popup += `<br>${new Date(wp.plannedArrival).toLocaleDateString('cs')}`
+      if (wp.portFees > 0) popup += `<br>${wp.portFees} €/noc`
+      marker.bindPopup(popup)
+    })
+
+    if (pts.length > 1) {
+      L.polyline(pts.map((w) => [w.lat, w.lng]), { color: '#0ea5e9', weight: 3, dashArray: '8 6' }).addTo(map)
+      map.fitBounds(pts.map((w) => [w.lat, w.lng]), { padding: [40, 40] })
+    } else if (pts.length === 1) {
+      map.setView([pts[0].lat, pts[0].lng], 10)
+    } else {
+      map.setView([43.5, 16.5], 7)
+    }
+
+    return () => { map.remove(); mapRef.current = null }
+  }, [waypoints])
+
+  return <div ref={divRef} style={{ height: '100%', width: '100%' }} />
+}
+
+const BUCKET = 'voyage-photos'
+
+function WaypointPhotos({ waypoint, voyageId }) {
+  const updateWaypoint = useStore((s) => s.updateWaypoint)
+  const photos = waypoint.photos ?? []
+  const [uploading, setUploading] = useState(false)
+  const [lightbox, setLightbox] = useState(null)
+  const inputRef = useRef(null)
+
+  const handleUpload = async (e) => {
+    const file = e.target.files[0]
+    if (!file) return
+    setUploading(true)
+    await supabase.storage.createBucket(BUCKET, { public: true }).catch(() => {})
+    const path = `${voyageId}/${waypoint.id}/${Date.now()}-${file.name}`
+    const { error } = await supabase.storage.from(BUCKET).upload(path, file)
+    if (!error) {
+      const { data: { publicUrl } } = supabase.storage.from(BUCKET).getPublicUrl(path)
+      updateWaypoint(waypoint.id, { photos: [...photos, publicUrl] })
+    }
+    setUploading(false)
+    e.target.value = ''
+  }
+
+  const deletePhoto = async (url) => {
+    const path = url.split(`/${BUCKET}/`)[1]?.split('?')[0]
+    if (path) await supabase.storage.from(BUCKET).remove([path])
+    updateWaypoint(waypoint.id, { photos: photos.filter((p) => p !== url) })
+  }
+
+  return (
+    <>
+      {photos.length > 0 && (
+        <div className="flex gap-2 flex-wrap mt-2">
+          {photos.map((url) => (
+            <div key={url} className="relative group">
+              <img
+                src={url}
+                alt=""
+                className="w-16 h-16 object-cover rounded-lg cursor-pointer"
+                onClick={() => setLightbox(url)}
+              />
+              <button
+                onClick={() => deletePhoto(url)}
+                className="absolute top-0.5 right-0.5 bg-black/50 rounded-full p-0.5 hidden group-hover:flex items-center justify-center"
+              >
+                <X size={10} className="text-white" />
+              </button>
+            </div>
+          ))}
+          <button
+            onClick={() => inputRef.current?.click()}
+            className="w-16 h-16 border-2 border-dashed border-slate-300 dark:border-slate-600 rounded-lg flex items-center justify-center text-slate-400 hover:border-ocean-400 hover:text-ocean-400 transition-colors"
+          >
+            {uploading ? <Loader size={16} className="animate-spin" /> : <Camera size={16} />}
+          </button>
+        </div>
+      )}
+      {photos.length === 0 && (
+        <button
+          onClick={() => inputRef.current?.click()}
+          className="mt-1.5 text-xs text-slate-400 flex items-center gap-1 hover:text-ocean-500 transition-colors"
+        >
+          {uploading ? <Loader size={12} className="animate-spin" /> : <Camera size={12} />}
+          Přidat fotku
+        </button>
+      )}
+      <input ref={inputRef} type="file" accept="image/*" capture="environment" className="hidden" onChange={handleUpload} />
+      {lightbox && (
+        <div
+          className="fixed inset-0 bg-black/90 z-50 flex items-center justify-center p-4"
+          onClick={() => setLightbox(null)}
+        >
+          <img src={lightbox} alt="" className="max-w-full max-h-full object-contain rounded-lg" />
+          <button className="absolute top-4 right-4 text-white bg-black/40 rounded-full p-2">
+            <X size={20} />
+          </button>
+        </div>
+      )}
+    </>
+  )
+}
 
 const WP_TYPES = [
   { id: 'marina', label: 'Marina', icon: '⚓' },
@@ -211,6 +350,13 @@ export default function RoutePage() {
         <span className="text-sm font-bold text-navy-800 dark:text-white w-12 text-right">{speed} uzlů</span>
       </div>
 
+      {/* Map */}
+      {waypoints.some((w) => w.lat && w.lng) && (
+        <div className="rounded-2xl overflow-hidden border border-slate-200 dark:border-slate-700" style={{ height: 280 }}>
+          <RouteMap waypoints={waypoints} />
+        </div>
+      )}
+
       {/* Waypoints */}
       <div className="space-y-1">
         {waypoints.length === 0 && (
@@ -261,6 +407,7 @@ export default function RoutePage() {
                     {wp.lat && <span className="text-xs text-slate-300">{wp.lat.toFixed(4)}, {wp.lng?.toFixed(4)}</span>}
                   </div>
                   {wp.notes && <p className="text-xs text-slate-400 mt-1 italic">{wp.notes}</p>}
+                  <WaypointPhotos waypoint={wp} voyageId={activeVoyageId} />
                 </div>
                 <button onClick={() => deleteWaypoint(wp.id)} className="p-1.5 text-slate-300 hover:text-red-400 transition-colors flex-shrink-0">
                   <Trash2 size={14} />

@@ -8,10 +8,13 @@ import ExpensesPage from './pages/ExpensesPage'
 import RoutePage from './pages/RoutePage'
 import SuppliesPage from './pages/SuppliesPage'
 import ToolsPage from './pages/ToolsPage'
+import RegataPage from './pages/RegataPage'
 import LogPage from './pages/LogPage'
 import AuthPage from './pages/AuthPage'
 import SharePage from './pages/SharePage'
 import JoinPage from './pages/JoinPage'
+import PrivacyPage from './pages/PrivacyPage'
+import AccountPage from './pages/AccountPage'
 import { supabase } from './lib/supabase'
 import useStore from './store/useStore'
 
@@ -74,6 +77,10 @@ export default function App() {
     return <Routes><Route path="/share/:token" element={<SharePage />} /></Routes>
   }
 
+  if (window.location.pathname === '/privacy') {
+    return <Routes><Route path="/privacy" element={<PrivacyPage />} /></Routes>
+  }
+
   if (user === undefined) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-navy-900 to-ocean-700 flex items-center justify-center">
@@ -93,9 +100,12 @@ export default function App() {
         <Route path="/route" element={<RoutePage />} />
         <Route path="/supplies" element={<SuppliesPage />} />
         <Route path="/tools" element={<ToolsPage />} />
+        <Route path="/regata" element={<RegataPage />} />
         <Route path="/log" element={<LogPage />} />
         <Route path="/share/:token" element={<SharePage />} />
         <Route path="/join" element={<JoinPage />} />
+        <Route path="/privacy" element={<PrivacyPage />} />
+        <Route path="/account" element={<AccountPage user={user} />} />
       </Routes>
     </Layout>
   )

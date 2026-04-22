@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
-import { LogOut, Sun, Moon, WifiOff } from 'lucide-react'
+import { LogOut, Sun, Moon, WifiOff, Settings } from 'lucide-react'
+import { Link } from 'react-router-dom'
 import BottomNav from './BottomNav'
 import InstallPrompt from './InstallPrompt'
 import { supabase } from '../lib/supabase'
@@ -54,6 +55,13 @@ export default function Layout({ children, user }) {
             >
               {dark ? <Sun size={14} /> : <Moon size={14} />}
             </button>
+            <Link
+              to="/account"
+              className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition-colors"
+              title="Účet"
+            >
+              <Settings size={14} />
+            </Link>
             <button
               onClick={() => supabase.auth.signOut()}
               className="flex items-center gap-1 text-slate-400 hover:text-red-400 transition-colors"

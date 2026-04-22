@@ -1,11 +1,13 @@
 import { useState } from 'react'
-import { Anchor, Mail, Lock, Loader2 } from 'lucide-react'
+import { Anchor, Mail, Lock, Loader2, KeyRound } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 
 export default function AuthPage() {
   const [mode, setMode] = useState('login') // 'login' | 'register'
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
+  const [inviteCode, setInviteCode] = useState('')
+  const [gdprConsent, setGdprConsent] = useState(false)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [success, setSuccess] = useState('')
@@ -17,6 +19,16 @@ export default function AuthPage() {
     setLoading(true)
     try {
       if (mode === 'register') {
+        // Ověř invite kód před registrací
+        const r = await fetch('/api/check-invite', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ code: inviteCode }),
+        })
+        if (!r.ok) {
+          const data = await r.json().catch(() => ({}))
+          throw new Error(data.error ?? 'Nesprávný přístupový kód.')
+        }
         const { error } = await supabase.auth.signUp({ email, password })
         if (error) throw error
         setSuccess('Zkontroluj svůj e-mail a potvrď registraci.')
@@ -76,7 +88,7 @@ export default function AuthPage() {
                 <input
                   className="input pl-9"
                   type="email"
-                  placeholder="kapitan@moře.cz"
+                  placeholder="kapitan@more.cz"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   required
@@ -84,6 +96,7 @@ export default function AuthPage() {
                 />
               </div>
             </div>
+
             <div>
               <label className="label">Heslo</label>
               <div className="relative">
@@ -100,6 +113,50 @@ export default function AuthPage() {
               </div>
             </div>
 
+            {mode === 'register' && (
+              <>
+                <div>
+                  <label className="label">Přístupový kód</label>
+                  <div className="relative">
+                    <KeyRound size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                    <input
+                      className="input pl-9"
+                      type="text"
+                      placeholder="Kód od kapitána"
+                      value={inviteCode}
+                      onChange={(e) => setInviteCode(e.target.value)}
+                      required
+                      autoComplete="off"
+                    />
+                  </div>
+                  <p className="text-[11px] text-slate-400 mt-1">Registrace je pouze pro pozvané uživatele.</p>
+                </div>
+
+                <div className="flex items-start gap-2.5">
+                  <input
+                    id="gdpr-consent"
+                    type="checkbox"
+                    checked={gdprConsent}
+                    onChange={(e) => setGdprConsent(e.target.checked)}
+                    required
+                    className="mt-0.5 w-4 h-4 rounded border-slate-300 accent-ocean-500 flex-shrink-0 cursor-pointer"
+                  />
+                  <label htmlFor="gdpr-consent" className="text-xs text-slate-500 leading-relaxed cursor-pointer">
+                    Souhlasím se{' '}
+                    <a
+                      href="/privacy"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-ocean-500 hover:underline font-medium"
+                    >
+                      zpracováním osobních údajů
+                    </a>{' '}
+                    dle GDPR
+                  </label>
+                </div>
+              </>
+            )}
+
             {error && (
               <p className="text-sm text-red-500 bg-red-50 rounded-xl px-3 py-2">{error}</p>
             )}
@@ -109,7 +166,7 @@ export default function AuthPage() {
 
             <button
               type="submit"
-              disabled={loading}
+              disabled={loading || (mode === 'register' && !gdprConsent)}
               className="btn-ocean w-full flex items-center justify-center gap-2 disabled:opacity-60"
             >
               {loading ? <Loader2 size={16} className="animate-spin" /> : null}
