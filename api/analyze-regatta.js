@@ -21,14 +21,33 @@ export default async function handler(req, res) {
     source: { type: 'base64', media_type: 'image/jpeg', data: b64 },
   }))
 
-  const prompt = `Analyzuj závodní pokyny (Sailing Instructions). Vrať JEN validní JSON bez markdown:
-{"event":"název regaty","location":"místo","dates":"termín","races":[{"number":1,"date":"YYYY-MM-DD","startTime":"HH:MM","distanceNm":číslo_nebo_null,"windNotes":"stručný popis nebo null","pageIndex":číslo_0_based}]}
+  const prompt = `Jsi expert na plachetnicové závody. Pečlivě analyzuj tyto závodní pokyny (Sailing Instructions).
 
-pageIndex = index stránky PDF (0 = první stránka) kde je schéma/info pro tuto rozjížďku.
+Vrať JEN validní JSON bez markdown:
+{
+  "event": "název regaty",
+  "location": "místo konání",
+  "dates": "termín konání",
+  "generalNotes": "2-3 věty — nejdůležitější obecné info: organizátor, kontakt, zvláštní pravidla, bezpečnost",
+  "importantPageIndexes": [seznam čísel stránek 0-based které obsahují schémata tratí, mapy nebo diagramy bójek],
+  "races": [
+    {
+      "number": 1,
+      "date": "YYYY-MM-DD nebo null",
+      "startTime": "HH:MM nebo null",
+      "distanceNm": číslo nebo null,
+      "courseType": "typ tratě např. triangle, windward-leeward, coastal nebo null",
+      "marks": "stručný popis bójek a průjezdů nebo null",
+      "notes": "specifické pokyny pro tuto rozjížďku nebo null",
+      "windNotes": "poznámky k větru nebo null",
+      "pageIndex": číslo 0-based — index stránky s nejrelevantnějším schématem pro tuto rozjížďku
+    }
+  ]
+}
 
-Pravidla: races max 15. Vrať POUZE JSON, žádný jiný text.
+Pravidla: races max 15, importantPageIndexes max 8. Vrať POUZE JSON, žádný jiný text.
 
-${text ? `Text:\n${text.slice(0, 8000)}` : ''}`
+${text ? `Text z PDF:\n${text.slice(0, 6000)}` : ''}`
 
   try {
     const upstream = await fetch('https://api.anthropic.com/v1/messages', {
@@ -40,7 +59,7 @@ ${text ? `Text:\n${text.slice(0, 8000)}` : ''}`
       },
       body: JSON.stringify({
         model: 'claude-haiku-4-5-20251001',
-        max_tokens: 4000,
+        max_tokens: 8000,
         messages: [{ role: 'user', content: [...imageContent, { type: 'text', text: prompt }] }],
       }),
     })
