@@ -1,5 +1,5 @@
 import { useState, useRef } from 'react'
-import { Trophy, Upload, Trash2, Loader, ChevronDown, ChevronUp, X, ZoomIn, Wind, Clock, Ruler, Info, Map, Flag, Navigation } from 'lucide-react'
+import { Trophy, Upload, Trash2, Loader, ChevronDown, ChevronUp, X, ZoomIn, Wind, Clock, Ruler, Info, Map as MapIcon, Flag, Navigation } from 'lucide-react'
 import * as pdfjsLib from 'pdfjs-dist'
 import workerUrl from 'pdfjs-dist/build/pdf.worker.min.mjs?url'
 import useStore from '../store/useStore'
@@ -210,7 +210,7 @@ export default function RegataPage() {
             {importantImgs.length > 0 && (
               <div className="mb-4">
                 <div className="flex items-center gap-1.5 mb-2">
-                  <Map size={13} className="text-slate-400" />
+                  <MapIcon size={13} className="text-slate-400" />
                   <span className="text-xs font-semibold text-slate-500 uppercase tracking-wide">
                     Schémata tratí
                   </span>
