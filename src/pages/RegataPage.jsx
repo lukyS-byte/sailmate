@@ -26,25 +26,34 @@ async function renderPageWithCrop(page) {
 
   const full = canvas.toDataURL('image/jpeg', 0.82).split(',')[1]
 
-  // Sbírej Y-pozice všech textových položek v canvas souřadnicích
+  // Převod PDF souřadnic na canvas: viewport.transform = [a,b,c,d,e,f]
+  // canvas_y = b*pdfX + d*pdfY + f
+  const [, tb,, td,, tf] = vp.transform  // b, d, f
+
   const content = await page.getTextContent()
   const textYs = []
+
   for (const item of content.items ?? []) {
     if (!item.str?.trim()) continue
-    try {
-      const [, cy] = pdfjsLib.Util.applyTransform(
-        [item.transform[4], item.transform[5]], vp.transform
-      )
-      const h = Math.abs(item.transform[3]) * scale * 0.5
-      textYs.push(cy, cy + h)
-    } catch {}
+    const pdfX = item.transform[4]
+    const pdfY = item.transform[5]
+    // canvas Y baseline textu
+    const cy = tb * pdfX + td * pdfY + tf
+    // výška písma v canvas pixelech
+    const fontH = Math.abs(item.transform[3]) * scale
+    // přidej horní i spodní hranu textu
+    const top = cy - fontH * 0.9
+    const bot = cy + fontH * 0.15
+    if (bot > 0 && top < vp.height) {
+      textYs.push(Math.max(top, 0), Math.min(bot, vp.height))
+    }
   }
 
   if (textYs.length < 4) return { full, crop: null }
 
   textYs.sort((a, b) => a - b)
 
-  // Najdi největší mezeru mezi textovými řádky — tam je mapa
+  // Najdi největší mezeru — tam leží mapa
   let gapTop = 0, gapBot = 0, maxGap = 0
   for (let i = 1; i < textYs.length; i++) {
     const gap = textYs[i] - textYs[i - 1]
@@ -55,13 +64,12 @@ async function renderPageWithCrop(page) {
     }
   }
 
-  // Mapa = oblast největší mezery, s malým paddingem
-  const mapTop = Math.max(gapTop - 8, 0)
-  const mapBot = Math.min(gapBot + 8, vp.height)
-  const mapH = mapBot - mapTop
+  // Mezera musí být aspoň 15 % výšky stránky, jinak žádná mapa
+  if (maxGap < vp.height * 0.15) return { full, crop: null }
 
-  // Pokud je mezera menší než 15 % stránky, stránka pravděpodobně nemá mapu
-  if (mapH < vp.height * 0.15) return { full, crop: null }
+  const mapTop = Math.max(gapTop - 6, 0)
+  const mapBot = Math.min(gapBot + 6, vp.height)
+  const mapH = mapBot - mapTop
 
   const cropCanvas = document.createElement('canvas')
   cropCanvas.width = vp.width
