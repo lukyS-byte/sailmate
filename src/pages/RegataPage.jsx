@@ -1,12 +1,13 @@
 import { useState, useRef } from 'react'
 import { Trophy, Upload, Trash2, Loader, ChevronDown, ChevronUp, X, ZoomIn, Wind, Clock, Ruler, Info, Map as MapIcon, Flag, Navigation } from 'lucide-react'
-import * as pdfjsLib from 'pdfjs-dist'
-import workerUrl from 'pdfjs-dist/build/pdf.worker.min.mjs?url'
 import useStore from '../store/useStore'
 
-pdfjsLib.GlobalWorkerOptions.workerSrc = workerUrl
-
 async function extractPdfData(file) {
+  // Lazy import — pdfjs se inicializuje až při nahrání PDF, ne při startu stránky
+  const pdfjsLib = await import('pdfjs-dist')
+  const { default: workerUrl } = await import('pdfjs-dist/build/pdf.worker.min.mjs?url')
+  pdfjsLib.GlobalWorkerOptions.workerSrc = workerUrl
+
   const buf = await file.arrayBuffer()
   const pdf = await pdfjsLib.getDocument({ data: buf }).promise
   const numPages = Math.min(pdf.numPages, 20)
