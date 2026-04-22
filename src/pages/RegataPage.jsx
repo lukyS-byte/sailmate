@@ -41,7 +41,7 @@ async function extractPdfData(file) {
     analysisImages.push(canvas.toDataURL('image/jpeg', 0.65).split(',')[1])
   }
 
-  return { displayImages, analysisImages, text: text.slice(0, 6000) }
+  return { displayImages, analysisImages, text: text.slice(0, 10000) }
 }
 
 async function analyzeRegatta(text, images) {

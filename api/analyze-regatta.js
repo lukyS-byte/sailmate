@@ -21,7 +21,9 @@ export default async function handler(req, res) {
     source: { type: 'base64', media_type: 'image/jpeg', data: b64 },
   }))
 
-  const prompt = `Jsi expert na plachetnicové závody. Pečlivě analyzuj tyto závodní pokyny (Sailing Instructions).
+  const prompt = `Jsi expert na plachetnicové závody. Pečlivě analyzuj tyto závodní pokyny (Sailing Instructions) a najdi VŠECHNY rozjížďky bez výjimky.
+
+DŮLEŽITÉ: Projdi celý text a najdi každou rozjížďku/závod. Hledej: "Race 1", "Race 2", ..., "Rozjížďka 1", tabulky s programem startů, časové plány. Nezastavuj se u první — najdi úplně VŠECHNY.
 
 Vrať JEN validní JSON bez markdown:
 {
@@ -45,9 +47,12 @@ Vrať JEN validní JSON bez markdown:
   ]
 }
 
-Pravidla: races max 15, importantPageIndexes max 8. Vrať POUZE JSON, žádný jiný text.
+Pravidla:
+- races max 20 — zahrň KAŽDOU rozjížďku co najdeš
+- importantPageIndexes max 8
+- Vrať POUZE JSON, žádný jiný text
 
-${text ? `Text z PDF:\n${text.slice(0, 6000)}` : ''}`
+${text ? `Text z PDF:\n${text.slice(0, 10000)}` : ''}`
 
   try {
     const upstream = await fetch('https://api.anthropic.com/v1/messages', {
