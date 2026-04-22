@@ -98,20 +98,15 @@ function PreviewDialog({ data, images, onConfirm, onCancel }) {
       <div className="bg-white dark:bg-navy-900 w-full sm:max-w-lg rounded-t-2xl sm:rounded-2xl shadow-2xl max-h-[90vh] flex flex-col">
         {/* Header */}
         <div className="px-5 pt-5 pb-3 border-b border-slate-100 dark:border-slate-700 shrink-0">
-          <div className="flex items-start justify-between gap-3">
-            <div>
-              <h2 className="font-bold text-navy-800 dark:text-white text-lg leading-tight">
-                {result.event || 'Regata'}
-              </h2>
-              {(result.location || result.dates) && (
-                <p className="text-sm text-slate-500 mt-0.5">
-                  {[result.location, result.dates].filter(Boolean).join(' · ')}
-                </p>
-              )}
-            </div>
-            <button className="btn-ghost p-1.5 shrink-0" onClick={onCancel}>
-              <X size={18} />
-            </button>
+          <div>
+            <h2 className="font-bold text-navy-800 dark:text-white text-lg leading-tight">
+              {result.event || 'Regata'}
+            </h2>
+            {(result.location || result.dates) && (
+              <p className="text-sm text-slate-500 mt-0.5">
+                {[result.location, result.dates].filter(Boolean).join(' · ')}
+              </p>
+            )}
           </div>
           {result.generalNotes && (
             <div className="mt-3 rounded-xl bg-ocean-50 dark:bg-ocean-900/20 border border-ocean-100 dark:border-ocean-800 px-3 py-2 flex gap-2">
