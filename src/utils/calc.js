@@ -60,14 +60,22 @@ export function estimatePortFee(country, loa) {
 }
 
 // Expense splitting — returns { crewId: balance } and transactions
-export function splitExpenses(expenses, crew) {
+// rates: exchange rate map relative to EUR (from getRates()), baseCurrency: voyage currency
+export function splitExpenses(expenses, crew, rates = null, baseCurrency = 'EUR') {
+  const toBase = (amount, currency) => {
+    if (!rates || !currency || currency === baseCurrency) return amount
+    const inEUR = amount / (rates[currency] ?? 1)
+    return inEUR * (rates[baseCurrency] ?? 1)
+  }
+
   const balance = {}
   crew.forEach((c) => (balance[c.id] = 0))
 
   expenses.forEach((exp) => {
+    const amount = toBase(exp.amount, exp.currency)
     const among = exp.splitAmong?.length ? exp.splitAmong : crew.map((c) => c.id)
-    const share = exp.amount / among.length
-    balance[exp.paidBy] = (balance[exp.paidBy] ?? 0) + exp.amount
+    const share = amount / among.length
+    balance[exp.paidBy] = (balance[exp.paidBy] ?? 0) + amount
     among.forEach((id) => {
       balance[id] = (balance[id] ?? 0) - share
     })

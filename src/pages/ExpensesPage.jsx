@@ -3,9 +3,10 @@ import { useLocation } from 'react-router-dom'
 import { Plus, Trash2, Wallet, ArrowRight, ChevronDown, ChevronUp, Share2, Copy, Check, Pencil } from 'lucide-react'
 import useStore from '../store/useStore'
 import { splitExpenses, formatCurrency, EXPENSE_CATEGORIES } from '../utils/calc'
+import { getRates, convert, SUPPORTED_CURRENCIES } from '../utils/rates'
 import Modal from '../components/Modal'
 
-function AddExpenseModal({ voyage, onClose, expense }) {
+function AddExpenseModal({ voyage, onClose, expense, rates }) {
   const addExpense = useStore((s) => s.addExpense)
   const updateExpense = useStore((s) => s.updateExpense)
   const crew = voyage.crew ?? []
@@ -13,11 +14,16 @@ function AddExpenseModal({ voyage, onClose, expense }) {
   const [form, setForm] = useState({
     description: expense?.description ?? '',
     amount: expense?.amount?.toString() ?? '',
+    currency: expense?.currency ?? voyage.currency,
     category: expense?.category ?? 'food',
     paidBy: expense?.paidBy ?? crew[0]?.id ?? '',
     splitAmong: expense?.splitAmong ?? crew.map((c) => c.id),
     date: expense?.date ?? new Date().toISOString().slice(0, 10),
   })
+
+  const inBase = form.amount && form.currency !== voyage.currency && rates
+    ? convert(parseFloat(form.amount), form.currency, voyage.currency, rates)
+    : null
 
   const f = (k) => (e) => setForm((p) => ({ ...p, [k]: e.target.value }))
 
@@ -34,7 +40,7 @@ function AddExpenseModal({ voyage, onClose, expense }) {
     const data = {
       description: form.description || EXPENSE_CATEGORIES.find((c) => c.id === form.category)?.label,
       amount: parseFloat(form.amount),
-      currency: voyage.currency,
+      currency: form.currency,
       category: form.category,
       paidBy: form.paidBy,
       splitAmong: form.splitAmong,
@@ -56,8 +62,16 @@ function AddExpenseModal({ voyage, onClose, expense }) {
       </div>
       <div className="grid grid-cols-2 gap-3">
         <div>
-          <label className="label">Částka ({voyage.currency})</label>
-          <input className="input" type="number" step="0.01" placeholder="0.00" value={form.amount} onChange={f('amount')} required autoFocus />
+          <label className="label">Částka</label>
+          <div className="flex gap-1.5">
+            <input className="input flex-1 min-w-0" type="number" step="0.01" placeholder="0.00" value={form.amount} onChange={f('amount')} required autoFocus />
+            <select className="input w-24 flex-shrink-0 px-1" value={form.currency} onChange={f('currency')}>
+              {SUPPORTED_CURRENCIES.map((c) => <option key={c} value={c}>{c}</option>)}
+            </select>
+          </div>
+          {inBase !== null && (
+            <p className="text-xs text-ocean-600 mt-1">≈ {formatCurrency(inBase, voyage.currency)}</p>
+          )}
         </div>
         <div>
           <label className="label">Datum</label>
@@ -130,6 +144,9 @@ export default function ExpensesPage() {
   const [editExpense, setEditExpense] = useState(null)
   const [showSettlement, setShowSettlement] = useState(false)
   const [copied, setCopied] = useState(false)
+  const [rates, setRates] = useState(null)
+
+  useEffect(() => { getRates().then(setRates) }, [])
 
   const shareSettlement = () => {
     if (!voyage) return
@@ -168,14 +185,18 @@ export default function ExpensesPage() {
   const voyageExpenses = expenses.filter((e) => e.voyageId === activeVoyageId)
     .sort((a, b) => new Date(b.date) - new Date(a.date))
 
-  const total = voyageExpenses.reduce((s, e) => s + e.amount, 0)
+  const toBase = (amount, currency) => {
+    if (!rates || !currency || currency === voyage?.currency) return amount
+    return convert(amount, currency, voyage.currency, rates)
+  }
+  const total = voyageExpenses.reduce((s, e) => s + toBase(e.amount, e.currency), 0)
   const { balance, transactions } = crew.length
-    ? splitExpenses(voyageExpenses, crew)
+    ? splitExpenses(voyageExpenses, crew, rates, voyage?.currency)
     : { balance: {}, transactions: [] }
 
   const catTotals = EXPENSE_CATEGORIES.map((cat) => ({
     ...cat,
-    total: voyageExpenses.filter((e) => e.category === cat.id).reduce((s, e) => s + e.amount, 0),
+    total: voyageExpenses.filter((e) => e.category === cat.id).reduce((s, e) => s + toBase(e.amount, e.currency), 0),
   })).filter((c) => c.total > 0).sort((a, b) => b.total - a.total)
 
   if (!voyage) return <EmptyState />
@@ -312,7 +333,12 @@ export default function ExpensesPage() {
                       {payer?.name ?? '—'} · {new Date(exp.date).toLocaleDateString('cs', { day: 'numeric', month: 'short' })}
                     </p>
                   </div>
-                  <span className="font-bold text-sm text-slate-800 flex-shrink-0">{formatCurrency(exp.amount, voyage.currency)}</span>
+                  <div className="flex-shrink-0 text-right">
+                    <p className="font-bold text-sm text-slate-800">{formatCurrency(exp.amount, exp.currency ?? voyage.currency)}</p>
+                    {exp.currency && exp.currency !== voyage.currency && rates && (
+                      <p className="text-[10px] text-slate-400">≈ {formatCurrency(toBase(exp.amount, exp.currency), voyage.currency)}</p>
+                    )}
+                  </div>
                   <button onClick={() => setEditExpense(exp)} className="p-1.5 text-slate-300 hover:text-ocean-400 transition-colors">
                     <Pencil size={14} />
                   </button>
@@ -326,8 +352,8 @@ export default function ExpensesPage() {
         )}
       </div>
 
-      {showAdd && <AddExpenseModal voyage={voyage} onClose={() => setShowAdd(false)} />}
-      {editExpense && <AddExpenseModal voyage={voyage} expense={editExpense} onClose={() => setEditExpense(null)} />}
+      {showAdd && <AddExpenseModal voyage={voyage} onClose={() => setShowAdd(false)} rates={rates} />}
+      {editExpense && <AddExpenseModal voyage={voyage} expense={editExpense} onClose={() => setEditExpense(null)} rates={rates} />}
     </div>
   )
 }
