@@ -8,7 +8,6 @@ import ExpensesPage from './pages/ExpensesPage'
 import RoutePage from './pages/RoutePage'
 import SuppliesPage from './pages/SuppliesPage'
 import ToolsPage from './pages/ToolsPage'
-import RegataPage from './pages/RegataPage'
 import LogPage from './pages/LogPage'
 import AuthPage from './pages/AuthPage'
 import SharePage from './pages/SharePage'
@@ -100,7 +99,6 @@ export default function App() {
         <Route path="/route" element={<RoutePage />} />
         <Route path="/supplies" element={<SuppliesPage />} />
         <Route path="/tools" element={<ToolsPage />} />
-        <Route path="/regata" element={<RegataPage />} />
         <Route path="/log" element={<LogPage />} />
         <Route path="/share/:token" element={<SharePage />} />
         <Route path="/join" element={<JoinPage />} />

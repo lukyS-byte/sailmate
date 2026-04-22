@@ -11,7 +11,6 @@ const useStore = create(
       waypoints: [],
       supplies: [],
       logbook: [],
-      regattas: [],
       activeVoyageId: null,
 
       // ── Voyage ──────────────────────────────────────────
@@ -29,7 +28,6 @@ const useStore = create(
           waypoints: s.waypoints.filter((w) => w.voyageId !== id),
           supplies: s.supplies.filter((x) => x.voyageId !== id),
           logbook: s.logbook.filter((l) => l.voyageId !== id),
-          regattas: s.regattas.filter((r) => r.voyageId !== id),
           activeVoyageId: s.activeVoyageId === id ? null : s.activeVoyageId,
         })),
       setActiveVoyage: (id) => set({ activeVoyageId: id }),
@@ -97,34 +95,6 @@ const useStore = create(
         set((s) => ({ supplies: s.supplies.filter((x) => x.id !== id) })),
       getVoyageSupplies: (voyageId) => get().supplies.filter((x) => x.voyageId === voyageId),
 
-      // ── Regattas ────────────────────────────────────────
-      addRegatta: (data) =>
-        set((s) => ({ regattas: [...s.regattas, { createdAt: new Date().toISOString(), ...data, id: data.id ?? uid() }] })),
-      deleteRegatta: (id) =>
-        set((s) => ({ regattas: s.regattas.filter((r) => r.id !== id) })),
-      updateRegatta: (id, data) =>
-        set((s) => ({ regattas: s.regattas.map((r) => (r.id === id ? { ...r, ...data } : r)) })),
-      updateRegattaMark: (regattaId, raceNumber, markOrder, coords) =>
-        set((s) => ({
-          regattas: s.regattas.map((r) => {
-            if (r.id !== regattaId) return r
-            return {
-              ...r,
-              races: r.races.map((race) => {
-                if (race.number !== raceNumber) return race
-                return {
-                  ...race,
-                  marks: race.marks.map((m) =>
-                    (m.order ?? m.name) === (markOrder ?? m.name)
-                      ? { ...m, lat: coords.lat, lng: coords.lng }
-                      : m
-                  ),
-                }
-              }),
-            }
-          }),
-        })),
-      getVoyageRegattas: (voyageId) => get().regattas.filter((r) => r.voyageId === voyageId),
 
       // ── Logbook ─────────────────────────────────────────
       addLogEntry: (data) =>
@@ -146,14 +116,13 @@ const useStore = create(
           waypoints: data.waypoints ?? [],
           supplies: data.supplies ?? [],
           logbook: data.logbook ?? [],
-          regattas: data.regattas ?? [],
           activeVoyageId: data.activeVoyageId ?? null,
         }),
       clearData: () =>
-        set({ voyages: [], expenses: [], waypoints: [], supplies: [], logbook: [], regattas: [], activeVoyageId: null }),
+        set({ voyages: [], expenses: [], waypoints: [], supplies: [], logbook: [], activeVoyageId: null }),
       getSnapshot: () => {
-        const { voyages, expenses, waypoints, supplies, logbook, regattas, activeVoyageId } = get()
-        return { voyages, expenses, waypoints, supplies, logbook, regattas, activeVoyageId }
+        const { voyages, expenses, waypoints, supplies, logbook, activeVoyageId } = get()
+        return { voyages, expenses, waypoints, supplies, logbook, activeVoyageId }
       },
     }),
     { name: 'sailmate-v1' }

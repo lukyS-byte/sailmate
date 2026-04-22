@@ -71,10 +71,6 @@ export default function PrivacyPage() {
               </li>
               <li className="flex items-start gap-2">
                 <span className="text-ocean-500 mt-0.5 flex-shrink-0">•</span>
-                <span><strong>Regaty:</strong> záznamy o závodech, výsledky</span>
-              </li>
-              <li className="flex items-start gap-2">
-                <span className="text-ocean-500 mt-0.5 flex-shrink-0">•</span>
                 <span><strong>Fotografie:</strong> snímky zastávek a míst z výprav</span>
               </li>
             </ul>
