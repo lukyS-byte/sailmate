@@ -25,6 +25,13 @@ function AddExpenseModal({ voyage, onClose, expense, rates }) {
     ? convert(parseFloat(form.amount), form.currency, voyage.currency, rates)
     : null
 
+  const rateDisplay = form.currency !== voyage.currency && rates
+    ? (() => {
+        const r = convert(1, form.currency, voyage.currency, rates)
+        return `1 ${form.currency} = ${r < 1 ? r.toFixed(4) : r.toFixed(2)} ${voyage.currency}`
+      })()
+    : null
+
   const f = (k) => (e) => setForm((p) => ({ ...p, [k]: e.target.value }))
 
   const toggleSplit = (id) => {
@@ -69,6 +76,9 @@ function AddExpenseModal({ voyage, onClose, expense, rates }) {
               {SUPPORTED_CURRENCIES.map((c) => <option key={c} value={c}>{c}</option>)}
             </select>
           </div>
+          {rateDisplay && (
+            <p className="text-xs text-slate-400 mt-1">{rateDisplay}</p>
+          )}
           {inBase !== null && (
             <p className="text-xs text-ocean-600 mt-1">≈ {formatCurrency(inBase, voyage.currency)}</p>
           )}
