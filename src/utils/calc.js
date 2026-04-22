@@ -109,7 +109,7 @@ export function splitExpenses(expenses, crew, rates = null, baseCurrency = 'EUR'
 }
 
 export function formatCurrency(amount, currency = 'EUR') {
-  return new Intl.NumberFormat('cs-CZ', { style: 'currency', currency, minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(amount)
+  return new Intl.NumberFormat('cs-CZ', { style: 'currency', currency, maximumFractionDigits: 0 }).format(amount)
 }
 
 export const EXPENSE_CATEGORIES = [
