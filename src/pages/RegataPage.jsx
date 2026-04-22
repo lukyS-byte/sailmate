@@ -28,20 +28,20 @@ async function extractPdfData(file) {
     displayImages.push(canvas.toDataURL('image/jpeg', 0.82).split(',')[1])
   }
 
-  // Menší obrázky pro analýzu AI
+  // Menší obrázky pro analýzu AI — max 4 stránky, nízká kvalita, aby nepřekročily Vercel limit 4.5 MB
   const analysisImages = []
-  for (let i = 1; i <= Math.min(pdf.numPages, 8); i++) {
+  for (let i = 1; i <= Math.min(pdf.numPages, 4); i++) {
     const page = await pdf.getPage(i)
-    const viewport = page.getViewport({ scale: 1.0 })
+    const viewport = page.getViewport({ scale: 0.8 })
     const canvas = document.createElement('canvas')
     canvas.width = viewport.width
     canvas.height = viewport.height
     const task = page.render({ canvasContext: canvas.getContext('2d'), viewport })
     await (task.promise ?? task)
-    analysisImages.push(canvas.toDataURL('image/jpeg', 0.65).split(',')[1])
+    analysisImages.push(canvas.toDataURL('image/jpeg', 0.5).split(',')[1])
   }
 
-  return { displayImages, analysisImages, text: text.slice(0, 10000) }
+  return { displayImages, analysisImages, text: text.slice(0, 15000) }
 }
 
 async function analyzeRegatta(text, images) {
@@ -182,10 +182,9 @@ function PreviewDialog({ data, images, onConfirm, onCancel }) {
           <button
             className="btn-ocean flex-1 flex items-center justify-center gap-1.5"
             onClick={handleConfirm}
-            disabled={selected.size === 0}
           >
             <Check size={15} />
-            Uložit {selected.size > 0 ? `(${selected.size})` : ''}
+            Uložit {selected.size > 0 ? `(${selected.size})` : 'vše'}
           </button>
         </div>
       </div>

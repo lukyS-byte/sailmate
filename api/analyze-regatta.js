@@ -21,38 +21,44 @@ export default async function handler(req, res) {
     source: { type: 'base64', media_type: 'image/jpeg', data: b64 },
   }))
 
-  const prompt = `Jsi expert na plachetnicové závody. Pečlivě analyzuj tyto závodní pokyny (Sailing Instructions) a najdi VŠECHNY rozjížďky bez výjimky.
+  const prompt = `Jsi expert na plachetnicové závody. Analyzuj závodní pokyny (Sailing Instructions).
 
-DŮLEŽITÉ: Projdi celý text a najdi každou rozjížďku/závod. Hledej: "Race 1", "Race 2", ..., "Rozjížďka 1", tabulky s programem startů, časové plány. Nezastavuj se u první — najdi úplně VŠECHNY.
+KROK 1 — Nejdřív najdi v textu tabulku programu startů (Race Schedule / Programme / Harmonogram). Tabulka typicky vypadá takto:
+  Race 1 | 12.7. | 11:00
+  Race 2 | 12.7. | 14:00
+  Race 3 | 13.7. | 10:00
+  ...
+Nebo: "Race 1 ... 11:00 ... Race 2 ... 14:00"
+
+KROK 2 — Spočítej kolik je řádků/záznamů v tabulce. Každý řádek = jedna rozjížďka.
+
+KROK 3 — Vrať JSON se VŠEMI rozjížďkami které jsi napočítal. Pokud je v tabulce 8 závodů, musí být v races[] 8 položek.
 
 Vrať JEN validní JSON bez markdown:
 {
   "event": "název regaty",
   "location": "místo konání",
   "dates": "termín konání",
-  "generalNotes": "2-3 věty — nejdůležitější obecné info: organizátor, kontakt, zvláštní pravidla, bezpečnost",
-  "importantPageIndexes": [seznam čísel stránek 0-based které obsahují schémata tratí, mapy nebo diagramy bójek],
+  "generalNotes": "2-3 věty — nejdůležitější info",
+  "importantPageIndexes": [čísla stránek 0-based se schématy tratí/mapami],
   "races": [
     {
       "number": 1,
       "date": "YYYY-MM-DD nebo null",
       "startTime": "HH:MM nebo null",
       "distanceNm": číslo nebo null,
-      "courseType": "typ tratě např. triangle, windward-leeward, coastal nebo null",
-      "marks": "stručný popis bójek a průjezdů nebo null",
-      "notes": "specifické pokyny pro tuto rozjížďku nebo null",
+      "courseType": "typ tratě nebo null",
+      "marks": "popis bójek nebo null",
+      "notes": "specifické pokyny nebo null",
       "windNotes": "poznámky k větru nebo null",
-      "pageIndex": číslo 0-based — index stránky s nejrelevantnějším schématem pro tuto rozjížďku
+      "pageIndex": číslo 0-based
     }
   ]
 }
 
-Pravidla:
-- races max 20 — zahrň KAŽDOU rozjížďku co najdeš
-- importantPageIndexes max 8
-- Vrať POUZE JSON, žádný jiný text
+Vrať POUZE JSON, žádný jiný text.
 
-${text ? `Text z PDF:\n${text.slice(0, 10000)}` : ''}`
+${text ? `Text z PDF:\n${text.slice(0, 15000)}` : ''}`
 
   try {
     const upstream = await fetch('https://api.anthropic.com/v1/messages', {
