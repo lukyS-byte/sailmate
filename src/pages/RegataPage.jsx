@@ -12,12 +12,59 @@ pdfjsLib.GlobalWorkerOptions.workerSrc = workerUrl
 
 // ─── PDF extrakce ──────────────────────────────────────────────────────────
 
+// Vykreslí stránku a ořízne část s mapou (pod textem)
+async function renderPageWithCrop(page) {
+  const scale = 1.8
+  const vp = page.getViewport({ scale })
+
+  // Vykreslit celou stránku
+  const canvas = document.createElement('canvas')
+  canvas.width = vp.width
+  canvas.height = vp.height
+  const ctx = canvas.getContext('2d')
+  const task = page.render({ canvasContext: ctx, viewport: vp })
+  await (task.promise ?? task)
+
+  // Najít kde v canvasu končí text (= kde začíná mapa)
+  const content = await page.getTextContent()
+  let maxTextY = 0
+  for (const item of content.items ?? []) {
+    if (!item.str?.trim()) continue
+    try {
+      // Převést PDF souřadnice na canvas souřadnice
+      const [, cy] = pdfjsLib.Util.applyTransform(
+        [item.transform[4], item.transform[5]],
+        vp.transform
+      )
+      const itemH = Math.abs(item.transform[3]) * scale * 0.4
+      if (cy + itemH > maxTextY) maxTextY = cy + itemH
+    } catch {}
+  }
+
+  // Mapa začíná 15px pod posledním textem, ale min 30 % výšky stránky
+  const mapTop = Math.max(maxTextY + 15, vp.height * 0.30)
+  const mapH = vp.height - mapTop
+
+  const full = canvas.toDataURL('image/jpeg', 0.82).split(',')[1]
+
+  // Pokud je mapa příliš malá, vrátit jen celou stránku
+  if (mapH < vp.height * 0.18) return { full, crop: null }
+
+  const cropCanvas = document.createElement('canvas')
+  cropCanvas.width = vp.width
+  cropCanvas.height = mapH
+  cropCanvas.getContext('2d').drawImage(canvas, 0, mapTop, vp.width, mapH, 0, 0, vp.width, mapH)
+
+  return { full, crop: cropCanvas.toDataURL('image/jpeg', 0.85).split(',')[1] }
+}
+
 async function extractPdfData(file) {
   const buf = await file.arrayBuffer()
   const pdf = await pdfjsLib.getDocument({ data: buf }).promise
   const totalPages = pdf.numPages
   const displayPages = Math.min(totalPages, 22)
-  const displayImages = []
+  // pageData[i] = { full, crop } nebo null
+  const pageData = []
 
   // Text ze všech stran
   let text = ''
@@ -28,18 +75,13 @@ async function extractPdfData(file) {
     text += Array.from(content.items ?? []).map((it) => it.str ?? '').join(' ')
   }
 
-  // Obrázky pro zobrazení
+  // Obrázky + ořez mapy
   for (let i = 1; i <= displayPages; i++) {
     const page = await pdf.getPage(i)
-    const vp = page.getViewport({ scale: 1.8 })
-    const c = document.createElement('canvas')
-    c.width = vp.width; c.height = vp.height
-    const t = page.render({ canvasContext: c.getContext('2d'), viewport: vp })
-    await (t.promise ?? t)
-    displayImages.push(c.toDataURL('image/jpeg', 0.82).split(',')[1])
+    pageData.push(await renderPageWithCrop(page))
   }
 
-  return { displayImages, text: text.slice(0, 28000) }
+  return { pageData, text: text.slice(0, 28000) }
 }
 
 async function analyzeRegatta(text) {
@@ -128,7 +170,9 @@ function PreviewDialog({ result, onConfirm, onCancel }) {
 
 function RaceCard({ race, imgs, onLightbox }) {
   const [open, setOpen] = useState(false)
-  const pageImg = imgs[race.pageIndex ?? 0] ?? null
+  const pd = imgs[race.pageIndex ?? 0] ?? null
+  const mapImg = pd?.crop ?? pd?.full ?? null   // oříznutá mapa, jinak celá stránka
+  const fullImg = pd?.full ?? null               // celá stránka pro lightbox
 
   return (
     <div className="card mb-3 overflow-hidden p-0">
@@ -208,14 +252,14 @@ function RaceCard({ race, imgs, onLightbox }) {
             </div>
           )}
 
-          {/* Map image */}
-          {pageImg ? (
+          {/* Map image — oříznutá na diagram trasy */}
+          {mapImg ? (
             <div
               className="relative group cursor-zoom-in border-t border-slate-100 dark:border-slate-700"
-              onClick={() => onLightbox(`data:image/jpeg;base64,${pageImg}`)}
+              onClick={() => onLightbox(`data:image/jpeg;base64,${fullImg ?? mapImg}`)}
             >
               <img
-                src={`data:image/jpeg;base64,${pageImg}`}
+                src={`data:image/jpeg;base64,${mapImg}`}
                 alt={`Schéma rozjížďky ${race.number}`}
                 className="w-full block"
               />
@@ -259,7 +303,7 @@ export default function RegataPage() {
       const { displayImages, text } = await extractPdfData(file)
       setUploadStep('Claude analyzuje rozjížďky…')
       const result = await analyzeRegatta(text)
-      setPreview({ result, displayImages })
+      setPreview({ result, pageData })
     } catch (e) {
       setError(e.message)
     } finally {
@@ -272,7 +316,7 @@ export default function RegataPage() {
     if (!preview) return
     const id = crypto.randomUUID()
     addRegatta({ voyageId: activeVoyageId, id, ...result })
-    setPageImages((prev) => ({ ...prev, [id]: preview.displayImages }))
+    setPageImages((prev) => ({ ...prev, [id]: preview.pageData }))
     setPreview(null)
   }
 
@@ -331,7 +375,7 @@ export default function RegataPage() {
 
       {/* Regattas */}
       {voyageRegattas.map((regatta) => {
-        const imgs = pageImages[regatta.id] ?? []
+        const imgs = pageImages[regatta.id] ?? []   // imgs[i] = { full, crop }
         return (
           <div key={regatta.id} className="mb-8">
             {/* Regatta header */}
