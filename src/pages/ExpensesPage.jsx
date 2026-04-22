@@ -64,7 +64,7 @@ function AddExpenseModal({ voyage, onClose, expense, rates }) {
         <div>
           <label className="label">Částka</label>
           <div className="flex gap-1.5">
-            <input className="input flex-1 min-w-0" type="number" step="0.01" placeholder="0.00" value={form.amount} onChange={f('amount')} required autoFocus />
+            <input className="input flex-1 min-w-0" type="number" step="1" placeholder="0" value={form.amount} onChange={f('amount')} required autoFocus />
             <select className="input w-24 flex-shrink-0 px-1" value={form.currency} onChange={f('currency')}>
               {SUPPORTED_CURRENCIES.map((c) => <option key={c} value={c}>{c}</option>)}
             </select>
