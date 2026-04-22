@@ -1,45 +1,50 @@
 import { useState, useRef } from 'react'
 import { Trophy, Upload, Trash2, Loader, ChevronDown, ChevronUp, X, ZoomIn, Wind, Clock, Ruler, Info, Map as MapIcon, Flag, Navigation } from 'lucide-react'
+import * as pdfjsLib from 'pdfjs-dist'
+import workerUrl from 'pdfjs-dist/build/pdf.worker.min.mjs?url'
 import useStore from '../store/useStore'
 
-async function extractPdfData(file) {
-  // Lazy import — pdfjs se inicializuje až při nahrání PDF, ne při startu stránky
-  const pdfjsLib = await import('pdfjs-dist')
-  const { default: workerUrl } = await import('pdfjs-dist/build/pdf.worker.min.mjs?url')
-  pdfjsLib.GlobalWorkerOptions.workerSrc = workerUrl
+pdfjsLib.GlobalWorkerOptions.workerSrc = workerUrl
 
+async function extractPdfData(file) {
   const buf = await file.arrayBuffer()
   const pdf = await pdfjsLib.getDocument({ data: buf }).promise
   const numPages = Math.min(pdf.numPages, 20)
   const displayImages = []
+  const analysisImages = []
   let text = ''
 
   for (let i = 1; i <= numPages; i++) {
     const page = await pdf.getPage(i)
 
-    // Text
+    // Text — Array.from kvůli kompatibilitě s pdfjs-dist v5
     const content = await page.getTextContent()
-    text += content.items.map((it) => it.str).join(' ') + '\n'
+    const items = Array.from(content.items ?? [])
+    text += items.map((it) => it.str ?? '').join(' ') + '\n'
+
+    // Pomocná funkce pro render — pdfjs v4 vrací RenderTask.promise, v5 přímo Promise
+    const renderPage = async (canvas, viewport) => {
+      const task = page.render({ canvasContext: canvas.getContext('2d'), viewport })
+      await (task.promise ?? task)
+    }
 
     // Display image — vysoká kvalita pro zobrazení
-    const viewport = page.getViewport({ scale: 1.8 })
-    const canvas = document.createElement('canvas')
-    canvas.width = viewport.width
-    canvas.height = viewport.height
-    await page.render({ canvasContext: canvas.getContext('2d'), viewport }).promise
-    displayImages.push(canvas.toDataURL('image/jpeg', 0.82).split(',')[1])
-  }
+    const vpDisplay = page.getViewport({ scale: 1.8 })
+    const cDisplay = document.createElement('canvas')
+    cDisplay.width = vpDisplay.width
+    cDisplay.height = vpDisplay.height
+    await renderPage(cDisplay, vpDisplay)
+    displayImages.push(cDisplay.toDataURL('image/jpeg', 0.82).split(',')[1])
 
-  // Analysis images — menší pro Claude (scale 1.0, nižší kvalita)
-  const analysisImages = []
-  for (let i = 1; i <= Math.min(numPages, 8); i++) {
-    const page = await pdf.getPage(i)
-    const viewport = page.getViewport({ scale: 1.0 })
-    const canvas = document.createElement('canvas')
-    canvas.width = viewport.width
-    canvas.height = viewport.height
-    await page.render({ canvasContext: canvas.getContext('2d'), viewport }).promise
-    analysisImages.push(canvas.toDataURL('image/jpeg', 0.65).split(',')[1])
+    // Analysis image — menší pro Claude (jen prvních 8 stránek)
+    if (i <= 8) {
+      const vpSmall = page.getViewport({ scale: 1.0 })
+      const cSmall = document.createElement('canvas')
+      cSmall.width = vpSmall.width
+      cSmall.height = vpSmall.height
+      await renderPage(cSmall, vpSmall)
+      analysisImages.push(cSmall.toDataURL('image/jpeg', 0.65).split(',')[1])
+    }
   }
 
   return { displayImages, analysisImages, text: text.slice(0, 6000) }
