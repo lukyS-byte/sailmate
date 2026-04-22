@@ -12,7 +12,7 @@ pdfjsLib.GlobalWorkerOptions.workerSrc = workerUrl
 
 // ─── PDF extrakce ──────────────────────────────────────────────────────────
 
-// Vykreslí stránku a ořízne část s mapou (pod textem)
+// Vykreslí stránku a ořízne přesně oblast mapy (největší mezera bez textu)
 async function renderPageWithCrop(page) {
   const scale = 1.8
   const vp = page.getViewport({ scale })
@@ -21,41 +21,54 @@ async function renderPageWithCrop(page) {
   const canvas = document.createElement('canvas')
   canvas.width = vp.width
   canvas.height = vp.height
-  const ctx = canvas.getContext('2d')
-  const task = page.render({ canvasContext: ctx, viewport: vp })
+  const task = page.render({ canvasContext: canvas.getContext('2d'), viewport: vp })
   await (task.promise ?? task)
-
-  // Najít kde v canvasu končí text (= kde začíná mapa)
-  const content = await page.getTextContent()
-  let maxTextY = 0
-  for (const item of content.items ?? []) {
-    if (!item.str?.trim()) continue
-    try {
-      // Převést PDF souřadnice na canvas souřadnice
-      const [, cy] = pdfjsLib.Util.applyTransform(
-        [item.transform[4], item.transform[5]],
-        vp.transform
-      )
-      const itemH = Math.abs(item.transform[3]) * scale * 0.4
-      if (cy + itemH > maxTextY) maxTextY = cy + itemH
-    } catch {}
-  }
-
-  // Mapa začíná 15px pod posledním textem, ale min 30 % výšky stránky
-  const mapTop = Math.max(maxTextY + 15, vp.height * 0.30)
-  const mapH = vp.height - mapTop
 
   const full = canvas.toDataURL('image/jpeg', 0.82).split(',')[1]
 
-  // Pokud je mapa příliš malá, vrátit jen celou stránku
-  if (mapH < vp.height * 0.18) return { full, crop: null }
+  // Sbírej Y-pozice všech textových položek v canvas souřadnicích
+  const content = await page.getTextContent()
+  const textYs = []
+  for (const item of content.items ?? []) {
+    if (!item.str?.trim()) continue
+    try {
+      const [, cy] = pdfjsLib.Util.applyTransform(
+        [item.transform[4], item.transform[5]], vp.transform
+      )
+      const h = Math.abs(item.transform[3]) * scale * 0.5
+      textYs.push(cy, cy + h)
+    } catch {}
+  }
+
+  if (textYs.length < 4) return { full, crop: null }
+
+  textYs.sort((a, b) => a - b)
+
+  // Najdi největší mezeru mezi textovými řádky — tam je mapa
+  let gapTop = 0, gapBot = 0, maxGap = 0
+  for (let i = 1; i < textYs.length; i++) {
+    const gap = textYs[i] - textYs[i - 1]
+    if (gap > maxGap) {
+      maxGap = gap
+      gapTop = textYs[i - 1]
+      gapBot = textYs[i]
+    }
+  }
+
+  // Mapa = oblast největší mezery, s malým paddingem
+  const mapTop = Math.max(gapTop - 8, 0)
+  const mapBot = Math.min(gapBot + 8, vp.height)
+  const mapH = mapBot - mapTop
+
+  // Pokud je mezera menší než 15 % stránky, stránka pravděpodobně nemá mapu
+  if (mapH < vp.height * 0.15) return { full, crop: null }
 
   const cropCanvas = document.createElement('canvas')
   cropCanvas.width = vp.width
   cropCanvas.height = mapH
   cropCanvas.getContext('2d').drawImage(canvas, 0, mapTop, vp.width, mapH, 0, 0, vp.width, mapH)
 
-  return { full, crop: cropCanvas.toDataURL('image/jpeg', 0.85).split(',')[1] }
+  return { full, crop: cropCanvas.toDataURL('image/jpeg', 0.88).split(',')[1] }
 }
 
 async function extractPdfData(file) {
