@@ -300,7 +300,7 @@ export default function RegataPage() {
     setUploading(true)
     try {
       setUploadStep('Načítám PDF…')
-      const { displayImages, text } = await extractPdfData(file)
+      const { pageData, text } = await extractPdfData(file)
       setUploadStep('Claude analyzuje rozjížďky…')
       const result = await analyzeRegatta(text)
       setPreview({ result, pageData })
