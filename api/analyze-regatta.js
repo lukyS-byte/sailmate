@@ -23,16 +23,13 @@ export default async function handler(req, res) {
 
   const prompt = `Jsi expert na plachetnicové závody. Analyzuj závodní pokyny (Sailing Instructions).
 
-KROK 1 — Nejdřív najdi v textu tabulku programu startů (Race Schedule / Programme / Harmonogram). Tabulka typicky vypadá takto:
-  Race 1 | 12.7. | 11:00
-  Race 2 | 12.7. | 14:00
-  Race 3 | 13.7. | 10:00
-  ...
-Nebo: "Race 1 ... 11:00 ... Race 2 ... 14:00"
+Prohlédni si přiložené obrázky stránek PDF. Hledej:
+- Tabulku programu startů (Race Programme / Race Schedule / Harmonogram startů)
+- Každý řádek v tabulce = jedna rozjížďka
+- Rozjížďky mohou být rozloženy přes celý týden (pondělí–neděle)
+- Hledej vzory: "Race 1", "Race 2", časy jako "11:00", "14:00", data jako "12.7.", "Mon", "Tue"
 
-KROK 2 — Spočítej kolik je řádků/záznamů v tabulce. Každý řádek = jedna rozjížďka.
-
-KROK 3 — Vrať JSON se VŠEMI rozjížďkami které jsi napočítal. Pokud je v tabulce 8 závodů, musí být v races[] 8 položek.
+Pokud najdeš tabulku se 8 závodami → races musí mít 8 položek. Nezastavuj se dřív!
 
 Vrať JEN validní JSON bez markdown:
 {
@@ -51,14 +48,14 @@ Vrať JEN validní JSON bez markdown:
       "marks": "popis bójek nebo null",
       "notes": "specifické pokyny nebo null",
       "windNotes": "poznámky k větru nebo null",
-      "pageIndex": číslo 0-based
+      "pageIndex": číslo 0-based stránky kde je schéma/info pro tuto rozjížďku
     }
   ]
 }
 
 Vrať POUZE JSON, žádný jiný text.
 
-${text ? `Text z PDF (každá strana označena --- Strana X ---):\n${text.slice(0, 25000)}` : ''}`
+${text ? `Záložní text z PDF (může být poškozený):\n${text.slice(0, 10000)}` : ''}`
 
   try {
     const upstream = await fetch('https://api.anthropic.com/v1/messages', {

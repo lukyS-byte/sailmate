@@ -14,30 +14,39 @@ async function extractPdfData(file) {
   const totalPages = pdf.numPages
   const displayPages = Math.min(totalPages, 20)
   const displayImages = []
+  const analysisImages = []
 
-  // Extrahuj TEXT ze VŠECH stránek (bez omezení) — schedule může být kdekoliv
-  let fullText = ''
+  for (let i = 1; i <= displayPages; i++) {
+    const page = await pdf.getPage(i)
+
+    // Display image — vysoká kvalita pro zobrazení v kartách
+    const vp = page.getViewport({ scale: 1.8 })
+    const c = document.createElement('canvas')
+    c.width = vp.width; c.height = vp.height
+    const t = page.render({ canvasContext: c.getContext('2d'), viewport: vp })
+    await (t.promise ?? t)
+    displayImages.push(c.toDataURL('image/jpeg', 0.82).split(',')[1])
+
+    // Analysis image — menší pro AI, posíláme prvních 10 stránek
+    if (i <= 10) {
+      const vp2 = page.getViewport({ scale: 1.2 })
+      const c2 = document.createElement('canvas')
+      c2.width = vp2.width; c2.height = vp2.height
+      const t2 = page.render({ canvasContext: c2.getContext('2d'), viewport: vp2 })
+      await (t2.promise ?? t2)
+      analysisImages.push(c2.toDataURL('image/jpeg', 0.65).split(',')[1])
+    }
+  }
+
+  // Text jako záloha (může být poškozený u naskenovaných PDF)
+  let text = ''
   for (let i = 1; i <= totalPages; i++) {
     const page = await pdf.getPage(i)
     const content = await page.getTextContent()
-    fullText += `--- Strana ${i} ---\n`
-    fullText += Array.from(content.items ?? []).map((it) => it.str ?? '').join(' ') + '\n'
+    text += Array.from(content.items ?? []).map((it) => it.str ?? '').join(' ') + '\n'
   }
 
-  // Display images — jen prvních 20 stránek pro zobrazení v kartách
-  for (let i = 1; i <= displayPages; i++) {
-    const page = await pdf.getPage(i)
-    const viewport = page.getViewport({ scale: 1.8 })
-    const canvas = document.createElement('canvas')
-    canvas.width = viewport.width
-    canvas.height = viewport.height
-    const task = page.render({ canvasContext: canvas.getContext('2d'), viewport })
-    await (task.promise ?? task)
-    displayImages.push(canvas.toDataURL('image/jpeg', 0.82).split(',')[1])
-  }
-
-  // Analýza: nepošleme obrázky (text stačí na nalezení rozjížděk), šetříme payload
-  return { displayImages, analysisImages: [], text: fullText.slice(0, 25000) }
+  return { displayImages, analysisImages, text: text.slice(0, 20000) }
 }
 
 async function analyzeRegatta(text, images) {
