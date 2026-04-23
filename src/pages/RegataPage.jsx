@@ -102,7 +102,7 @@ async function extractPdfData(file) {
     pageData.push(await renderPageWithCrop(page))
   }
 
-  return { pageData, text: text.slice(0, 28000) }
+  return { pageData, text: text.slice(0, 45000) }
 }
 
 async function analyzeRegatta(text) {

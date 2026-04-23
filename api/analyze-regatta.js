@@ -15,53 +15,58 @@ export default async function handler(req, res) {
     source: { type: 'base64', media_type: 'image/jpeg', data: b64 },
   }))
 
-  const prompt = `Jsi expert na plachetnicové závody. Analyzuj tento lodní deník / závodní pokyny (Sailing Instructions).
+  const prompt = `Jsi expert na plachetnicové závody. Pečlivě analyzuj CELÝ tento lodní deník / závodní pokyny (Sailing Instructions) od začátku do konce.
 
-Vrať JSON se VŠEMI dny regaty od příjezdu po odjezd, seskupenými po dnech. Formát:
+KROK 1 — PROJDI CELÝ DOKUMENT a najdi:
+  a) VŠECHNY rozjížďky (závody) — podívej se na všechny strany, bývá jich 6-10. Nikdy nekonči u 2-3.
+  b) VŠECHNY dny regaty — i dny bez závodu (příjezd, předání lodí, volný den, závěrečná večeře).
+  c) VŠECHNY praktické/kapitánské informace — typicky: přejímka lodí, předání lodí, protesty, bezpečnost, kontrolní body, kotvení, VHF komunikace, kontakty, pojištění/spoluúčast, palubní vybavení, pokuty. Každé téma = samostatný objekt.
+
+KROK 2 — Vrať POUZE tento JSON (žádný úvod, žádné markdown bloky):
 {
   "event": "název regaty",
   "location": "místo konání",
   "dates": "termín",
-  "generalNotes": "krátce: nejdůležitější obecné pokyny (VHF kanál, kontakty)",
-  "practicalInfo": [
-    {
-      "title": "název tématu, např. Přejímka lodí, Protesty, Bezpečnost, Kontrolní body",
-      "content": "podrobný text s praktickými informacemi — zachovej detaily (časy, telefony, postupy, odkazy na smlouvy atd.)"
-    }
-  ],
+  "generalNotes": "krátce: VHF kanál, hlavní kontakt",
   "days": [
     {
       "date": "YYYY-MM-DD",
       "dayName": "Sobota 9. května",
-      "dayNotes": "program dne bez závodů — příjezd, přebírání lodí s časy, kotvení, večeře atd. Null pro závodní dny.",
+      "dayNotes": "program nezávodního dne s časy (příjezd, přebírání, večeře) — jinak null",
       "races": [
         {
           "number": 1,
-          "name": "název trasy, např. Murterské moře",
+          "name": "název trasy",
           "startTime": "HH:MM nebo null",
           "distanceNm": číslo nebo null,
           "startMark": "startovní bod",
           "finishMark": "cílový bod",
           "marks": ["1. otočný bod: název LB/PB", "2. otočný bod: název LB/PB"],
-          "notes": "důležité poznámky (vítr, kotvení, bezpečnost)",
-          "pageIndex": číslo 0-based stránky s mapou/schématem trasy
+          "notes": "důležité poznámky",
+          "pageIndex": číslo 0-based stránky s mapou trasy
         }
       ]
+    }
+  ],
+  "practicalInfo": [
+    {
+      "title": "Přejímka lodí",
+      "content": "plný text zachovávající konkrétní detaily (časy, telefony, částky, postup)"
     }
   ]
 }
 
-Pravidla:
-- practicalInfo = důležité kapitánské informace (přejímka/předání lodí, protesty, bezpečnost, kontrolní body, VHF, kontakty, pojištění). Zachovej VŠECHNY konkrétní detaily: časy, telefony, částky, postupy krok po kroku. Každé téma = jeden objekt title+content.
-- Zahrň KAŽDÝ den regaty — závodní i nezávodní (příjezd, volno, závěrečná večeře)
-- Nezávodní dny: races = [], dayNotes = popis programu s časy
-- Závodní dny: races = seznam závodů, dayNotes = null
-- Zahrň KAŽDOU rozjížďku, nezastavuj se dříve
-- Pokud jsou dvě varianty trasy (různé třídy), zahrni detailnější/delší
-- pageIndex = index stránky PDF (0 = první strana) kde je MAPA trasy
-- Vrať POUZE JSON, žádný jiný text
+DŮLEŽITÁ PRAVIDLA:
+- NEUSTÁVEJ u několika prvních závodů — projdi CELÝ text a zahrni KAŽDOU rozjížďku
+- Nezávodní dny: races = [], dayNotes = popis programu
+- Závodní dny: races = seznam, dayNotes = null
+- Pokud existují dvě varianty trasy (třídy), vyber delší/detailnější
+- pageIndex = 0-based index strany s MAPOU
+- practicalInfo: minimálně 3-5 témat pokud je v textu dostatek informací. Zachovej ČÍSELNÉ detaily (telefony, částky, časy, spoluúčasti).
+- Nezkracuj — radši víc rozjížděk/témat než méně
+- Vrať POUZE validní JSON
 
-${text ? `Text z PDF:\n${text.slice(0, 25000)}` : ''}`
+${text ? `TEXT DOKUMENTU:\n${text.slice(0, 40000)}` : ''}`
 
   try {
     const upstream = await fetch('https://api.anthropic.com/v1/messages', {
@@ -69,7 +74,7 @@ ${text ? `Text z PDF:\n${text.slice(0, 25000)}` : ''}`
       headers: { 'Content-Type': 'application/json', ...authHeaders, 'anthropic-version': '2023-06-01' },
       body: JSON.stringify({
         model: 'claude-haiku-4-5-20251001',
-        max_tokens: 8000,
+        max_tokens: 16000,
         messages: [{ role: 'user', content: [...imageContent, { type: 'text', text: prompt }] }],
       }),
     })
