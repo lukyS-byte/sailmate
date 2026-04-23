@@ -352,7 +352,7 @@ export default function RegataPage() {
   const fileInputRef = useRef(null)
 
   const voyageRegattas = regattas.filter((r) => r.voyageId === activeVoyageId)
-  const BUILD_VERSION = 'v9'
+  const BUILD_VERSION = 'v10'
 
   const handleFile = async (file) => {
     if (!file || file.type !== 'application/pdf') { setError('Vyberte PDF soubor.'); return }
@@ -384,9 +384,18 @@ export default function RegataPage() {
 
   const handleConfirm = (result) => {
     if (!preview) return
-    const id = crypto.randomUUID()
-    addRegatta({ voyageId: activeVoyageId, id, ...result, pageData: preview.pageData })
-    setPreview(null)
+    const pageData = preview.pageData
+    setPreview(null)  // zavři dialog hned, ukládání může být pomalé
+    // Odložit ukládání do dalšího ticku, ať se stihne re-render (zavřít modál)
+    setTimeout(() => {
+      const id = crypto.randomUUID()
+      try {
+        addRegatta({ voyageId: activeVoyageId, id, ...result, pageData })
+      } catch (err) {
+        console.error('Regatta save failed:', err)
+        setError(`Uložení selhalo: ${err?.message || String(err)}`)
+      }
+    }, 50)
   }
 
   return (
