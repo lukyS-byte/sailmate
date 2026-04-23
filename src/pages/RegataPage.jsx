@@ -14,7 +14,7 @@ pdfjsLib.GlobalWorkerOptions.workerSrc = workerUrl
 
 // Vykreslí stránku a ořízne přesně oblast mapy (největší mezera bez textu)
 async function renderPageWithCrop(page) {
-  const scale = 1.8
+  const scale = 1.4
   const vp = page.getViewport({ scale })
 
   // Vykreslit celou stránku
@@ -24,7 +24,7 @@ async function renderPageWithCrop(page) {
   const task = page.render({ canvasContext: canvas.getContext('2d'), viewport: vp })
   await (task.promise ?? task)
 
-  const full = canvas.toDataURL('image/jpeg', 0.82).split(',')[1]
+  const full = canvas.toDataURL('image/jpeg', 0.72).split(',')[1]
 
   // Převod PDF souřadnic na canvas: viewport.transform = [a,b,c,d,e,f]
   // canvas_y = b*pdfX + d*pdfY + f
@@ -81,7 +81,11 @@ async function renderPageWithCrop(page) {
   cropCanvas.height = mapH
   cropCanvas.getContext('2d').drawImage(canvas, 0, mapTop, vp.width, mapH, 0, 0, vp.width, mapH)
 
-  return { full, crop: cropCanvas.toDataURL('image/jpeg', 0.88).split(',')[1] }
+  // Uvolni hlavní canvas (iOS Safari paměť)
+  canvas.width = 0
+  canvas.height = 0
+
+  return { full, crop: cropCanvas.toDataURL('image/jpeg', 0.8).split(',')[1] }
 }
 
 async function extractPdfData(file) {
@@ -345,11 +349,10 @@ export default function RegataPage() {
   const [error, setError] = useState('')
   const [lightbox, setLightbox] = useState(null)
   const [preview, setPreview] = useState(null)
-  const [pageImages, setPageImages] = useState({})
   const fileInputRef = useRef(null)
 
   const voyageRegattas = regattas.filter((r) => r.voyageId === activeVoyageId)
-  const BUILD_VERSION = 'v8'
+  const BUILD_VERSION = 'v9'
 
   const handleFile = async (file) => {
     if (!file || file.type !== 'application/pdf') { setError('Vyberte PDF soubor.'); return }
@@ -382,8 +385,7 @@ export default function RegataPage() {
   const handleConfirm = (result) => {
     if (!preview) return
     const id = crypto.randomUUID()
-    addRegatta({ voyageId: activeVoyageId, id, ...result })
-    setPageImages((prev) => ({ ...prev, [id]: preview.pageData }))
+    addRegatta({ voyageId: activeVoyageId, id, ...result, pageData: preview.pageData })
     setPreview(null)
   }
 
@@ -443,7 +445,7 @@ export default function RegataPage() {
 
       {/* Regattas */}
       {voyageRegattas.map((regatta) => {
-        const imgs = pageImages[regatta.id] ?? []   // imgs[i] = { full, crop }
+        const imgs = regatta.pageData ?? []   // imgs[i] = { full, crop }
         return (
           <div key={regatta.id} className="mb-8">
             {/* Regatta header */}
