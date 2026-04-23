@@ -1,153 +1,249 @@
-import { useState, useRef } from 'react'
-import { Plus, Trash2, BookOpen, Wind, Gauge, FileText, Loader, Check, MapPin, X } from 'lucide-react'
-import * as pdfjsLib from 'pdfjs-dist'
-import workerUrl from 'pdfjs-dist/build/pdf.worker.min.mjs?url'
+import { useState } from 'react'
+import {
+  Plus, Trash2, BookOpen, ChevronDown, ChevronUp, Calendar, Anchor,
+  Navigation, Wind, Eye, Droplets, Gauge, Waves, Ship, Cloud, Clock, Save,
+} from 'lucide-react'
 import useStore from '../store/useStore'
-import Modal from '../components/Modal'
 
-pdfjsLib.GlobalWorkerOptions.workerSrc = workerUrl
+// ── Column definitions for the main log table ─────────────────────────────
+const LOG_COLS = [
+  { key: 'time', label: 'Čas', w: 'w-16', ph: 'hh:mm' },
+  { key: 'lat', label: 'Latitude', w: 'w-24', ph: '43°10\'N' },
+  { key: 'lng', label: 'Longitude', w: 'w-24', ph: '16°26\'E' },
+  { key: 'log', label: 'Log', w: 'w-16', ph: 'nm' },
+  { key: 'kk', label: 'KK', w: 'w-14', ph: '°' },
+  { key: 'gps', label: 'GPS kurs', w: 'w-16', ph: '°' },
+  { key: 'speed', label: 'Rychlost', w: 'w-16', ph: 'kn' },
+  { key: 'wind', label: 'Vítr', w: 'w-20', ph: 'NE 12kn' },
+  { key: 'clouds', label: 'Oblačnost', w: 'w-20', ph: '3/8' },
+  { key: 'pressure', label: 'Tlak', w: 'w-16', ph: 'hPa' },
+  { key: 'sea', label: 'Stav moře', w: 'w-20', ph: '0-4' },
+  { key: 'visibility', label: 'Viditelnost', w: 'w-20', ph: 'km' },
+  { key: 'info', label: 'Plachty / motor / info', w: 'w-48', ph: 'hlavní + genoa…' },
+]
 
-async function extractPdfText(file) {
-  const buf = await file.arrayBuffer()
-  const pdf = await pdfjsLib.getDocument({ data: buf }).promise
-  const pages = []
-  for (let i = 1; i <= Math.min(pdf.numPages, 60); i++) {
-    const page = await pdf.getPage(i)
-    const content = await page.getTextContent()
-    pages.push(content.items.map((it) => it.str).join(' '))
-  }
-  return pages.join('\n').slice(0, 40000)
+function emptyRow() {
+  return Object.fromEntries(LOG_COLS.map((c) => [c.key, '']))
 }
 
-async function analyzeWithClaude(text) {
-  const res = await fetch('/api/analyze-pdf', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ text }),
-  })
-  if (!res.ok) {
-    const err = await res.json().catch(() => ({}))
-    throw new Error(err.error ?? `Chyba ${res.status}`)
-  }
-  return res.json()
+function emptyWatch() {
+  return { time: '', name: '' }
 }
 
-function PDFImportModal({ voyageId, onClose }) {
-  const { addLogEntry, addWaypoint, getVoyageWaypoints } = useStore()
-  const [phase, setPhase] = useState('idle')
-  const [result, setResult] = useState(null)
-  const [error, setError] = useState('')
-  const [selLogs, setSelLogs] = useState([])
-  const [selWps, setSelWps] = useState([])
-  const inputRef = useRef(null)
+// ── One day — expandable card with full logbook form ─────────────────────
+function DayCard({ day, dayNumber, onUpdate, onDelete }) {
+  const [open, setOpen] = useState(false)
+  const [d, setD] = useState(day)
 
-  const handleFile = async (e) => {
-    const file = e.target.files[0]
-    if (!file) return
-    setError(''); setPhase('extracting')
-    try {
-      const text = await extractPdfText(file)
-      setPhase('analyzing')
-      const data = await analyzeWithClaude(text)
-      setResult(data)
-      setSelLogs((data.logEntries ?? []).map((_, i) => i))
-      setSelWps((data.waypoints ?? []).map((_, i) => i))
-      setPhase('done')
-    } catch (err) {
-      setError(err.message)
-      setPhase('error')
-    }
-    e.target.value = ''
+  const save = (patch) => {
+    const next = { ...d, ...patch }
+    setD(next)
+    onUpdate(next)
   }
 
-  const toggleLog = (i) => setSelLogs((p) => p.includes(i) ? p.filter((x) => x !== i) : [...p, i])
-  const toggleWp = (i) => setSelWps((p) => p.includes(i) ? p.filter((x) => x !== i) : [...p, i])
-
-  const doImport = () => {
-    const existingNames = new Set(getVoyageWaypoints(voyageId).map((w) => w.name))
-    selLogs.forEach((i) => {
-      const e = result.logEntries[i]
-      addLogEntry({ voyageId, timestamp: e.timestamp, weather: e.weather ?? '☀️ Slunečno', windSpeed: e.windSpeed, windDirection: e.windDirection, notes: e.notes })
-    })
-    selWps.forEach((i) => {
-      const w = result.waypoints[i]
-      if (!existingNames.has(w.name)) {
-        addWaypoint({ voyageId, name: w.name, lat: w.lat ?? null, lng: w.lng ?? null, type: w.type ?? 'waypoint', notes: w.notes ?? '', country: 'HR', portFees: 0 })
-      }
-    })
-    onClose()
+  const setField = (k) => (e) => save({ [k]: e.target.value })
+  const setRow = (i, k, v) => {
+    const rows = [...(d.rows ?? [])]
+    rows[i] = { ...rows[i], [k]: v }
+    save({ rows })
   }
+  const addRow = () => save({ rows: [...(d.rows ?? []), emptyRow()] })
+  const removeRow = (i) => save({ rows: d.rows.filter((_, j) => j !== i) })
+
+  const setWatch = (i, k, v) => {
+    const watches = [...(d.watches ?? [])]
+    watches[i] = { ...watches[i], [k]: v }
+    save({ watches })
+  }
+  const addWatch = () => save({ watches: [...(d.watches ?? []), emptyWatch()] })
+  const removeWatch = (i) => save({ watches: d.watches.filter((_, j) => j !== i) })
+
+  // Auto sums
+  const sailNm = parseFloat(d.sailNm) || 0
+  const motorNm = parseFloat(d.motorNm) || 0
+  const totalNm = sailNm + motorNm
+  const motorH = parseFloat(d.motorH) || 0
+  const avgSpeed = totalNm && d.sailHours ? (totalNm / parseFloat(d.sailHours)).toFixed(1) : ''
+
+  const dateLabel = d.date
+    ? new Date(d.date).toLocaleDateString('cs', { weekday: 'short', day: 'numeric', month: 'long' })
+    : 'Bez data'
 
   return (
-    <div className="space-y-4">
-      {(phase === 'idle' || phase === 'error') && (
-        <>
-          <button className="btn-ocean w-full flex items-center justify-center gap-2" onClick={() => inputRef.current?.click()}>
-            <FileText size={16} /> Nahrát PDF deník / bulletin
-          </button>
-          <input ref={inputRef} type="file" accept="application/pdf" className="hidden" onChange={handleFile} />
-          {error && <p className="text-xs text-red-500 bg-red-50 rounded-xl px-3 py-2">{error}</p>}
-        </>
-      )}
-
-      {(phase === 'extracting' || phase === 'analyzing') && (
-        <div className="flex flex-col items-center py-8 gap-3 text-slate-500">
-          <Loader size={28} className="animate-spin text-ocean-500" />
-          <p className="text-sm font-medium">{phase === 'extracting' ? 'Čtu PDF…' : 'AI analyzuje obsah…'}</p>
+    <div className="card p-0 overflow-hidden mb-3">
+      {/* Header */}
+      <button
+        className="w-full flex items-center gap-3 px-4 py-3.5 text-left hover:bg-slate-50 dark:hover:bg-slate-800/40"
+        onClick={() => setOpen(!open)}
+      >
+        <span className="w-9 h-9 rounded-full bg-ocean-500 text-white text-sm font-bold flex items-center justify-center shrink-0">
+          {dayNumber}
+        </span>
+        <div className="flex-1 min-w-0">
+          <p className="font-semibold text-sm text-navy-800 dark:text-white truncate">{dateLabel}</p>
+          <div className="flex flex-wrap gap-x-2 text-[11px] text-slate-500">
+            {(d.from || d.to) && <span>{d.from || '…'} → {d.to || '…'}</span>}
+            {(d.rows?.length ?? 0) > 0 && <span>· {d.rows.length} záznamů</span>}
+            {totalNm > 0 && <span>· {totalNm.toFixed(1)} nm</span>}
+          </div>
         </div>
-      )}
+        {open ? <ChevronUp size={16} className="text-slate-400" /> : <ChevronDown size={16} className="text-slate-400" />}
+      </button>
 
-      {phase === 'done' && result && (
-        <div className="space-y-3">
-          <div className="bg-ocean-50 dark:bg-ocean-900/20 rounded-2xl p-3">
-            <p className="font-semibold text-sm">{result.event ?? 'Neznámá akce'}</p>
-            {result.location && <p className="text-xs text-slate-500">{result.location}{result.dates ? ` · ${result.dates}` : ''}</p>}
-            {result.summary && <p className="text-xs text-slate-600 dark:text-slate-300 mt-1">{result.summary}</p>}
+      {open && (
+        <div className="border-t border-slate-100 dark:border-slate-700 p-3 sm:p-4 space-y-4">
+          {/* Header fields */}
+          <section>
+            <p className="section-label"><Calendar size={12} /> Hlavička</p>
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+              <L label="Den" value={d.dayLabel ?? ''} onChange={setField('dayLabel')} placeholder={`${dayNumber}.`} />
+              <L label="Datum" type="date" value={d.date ?? ''} onChange={setField('date')} />
+              <L label="Čas T" value={d.timeT ?? ''} onChange={setField('timeT')} placeholder="08:00" />
+              <L label="Oblast" value={d.area ?? ''} onChange={setField('area')} placeholder="Kornati" />
+              <L label="Odkud" value={d.from ?? ''} onChange={setField('from')} placeholder="Murter" />
+              <L label="Kam" value={d.to ?? ''} onChange={setField('to')} placeholder="Žut" />
+            </div>
+          </section>
+
+          {/* Entries table */}
+          <section>
+            <p className="section-label"><Navigation size={12} /> Záznamy plavby</p>
+            <div className="overflow-x-auto -mx-3 sm:-mx-4 px-3 sm:px-4">
+              <table className="text-[11px] border-collapse">
+                <thead>
+                  <tr className="text-slate-500 dark:text-slate-400">
+                    {LOG_COLS.map((c) => (
+                      <th key={c.key} className={`${c.w} font-medium text-left px-1.5 py-1.5 border-b border-slate-200 dark:border-slate-700 whitespace-nowrap`}>
+                        {c.label}
+                      </th>
+                    ))}
+                    <th className="w-8"></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {(d.rows ?? []).map((row, i) => (
+                    <tr key={i} className="group">
+                      {LOG_COLS.map((c) => (
+                        <td key={c.key} className={`${c.w} border-b border-slate-100 dark:border-slate-800 px-0.5`}>
+                          <input
+                            className="w-full px-1.5 py-1.5 bg-transparent text-slate-800 dark:text-slate-100 focus:bg-ocean-50 dark:focus:bg-ocean-900/20 focus:outline-none rounded text-[11px]"
+                            placeholder={c.ph}
+                            value={row[c.key] ?? ''}
+                            onChange={(e) => setRow(i, c.key, e.target.value)}
+                          />
+                        </td>
+                      ))}
+                      <td className="border-b border-slate-100 dark:border-slate-800 text-center">
+                        <button
+                          onClick={() => removeRow(i)}
+                          className="text-slate-300 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity p-1"
+                        >
+                          <Trash2 size={11} />
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            <button onClick={addRow} className="btn-ghost mt-2 text-xs flex items-center gap-1.5">
+              <Plus size={12} /> Přidat řádek
+            </button>
+          </section>
+
+          {/* Weather forecast + watches + summary */}
+          <div className="grid sm:grid-cols-3 gap-4">
+            <section>
+              <p className="section-label"><Cloud size={12} /> Předpověď počasí</p>
+              <textarea
+                className="input text-xs"
+                rows={4}
+                value={d.forecast ?? ''}
+                onChange={setField('forecast')}
+                placeholder="SV 15-20 kn, jasno, vlny 0,5 m…"
+              />
+            </section>
+
+            <section>
+              <p className="section-label"><Clock size={12} /> Hlídky</p>
+              <div className="space-y-1">
+                {(d.watches ?? []).map((w, i) => (
+                  <div key={i} className="flex gap-1 items-center">
+                    <input
+                      className="input text-xs px-2 py-1.5 flex-1"
+                      placeholder="08-12"
+                      value={w.time ?? ''}
+                      onChange={(e) => setWatch(i, 'time', e.target.value)}
+                    />
+                    <input
+                      className="input text-xs px-2 py-1.5 flex-[1.5]"
+                      placeholder="Jméno"
+                      value={w.name ?? ''}
+                      onChange={(e) => setWatch(i, 'name', e.target.value)}
+                    />
+                    <button onClick={() => removeWatch(i)} className="text-slate-300 hover:text-red-500 p-1">
+                      <Trash2 size={12} />
+                    </button>
+                  </div>
+                ))}
+                <button onClick={addWatch} className="btn-ghost text-xs flex items-center gap-1.5 mt-1">
+                  <Plus size={12} /> Hlídka
+                </button>
+              </div>
+            </section>
+
+            <section>
+              <p className="section-label"><Gauge size={12} /> Suma</p>
+              <div className="space-y-1.5">
+                <L compact label="Upluto na plachty (nm)" type="number" value={d.sailNm ?? ''} onChange={setField('sailNm')} />
+                <L compact label="Upluto na motor (nm)" type="number" value={d.motorNm ?? ''} onChange={setField('motorNm')} />
+                <div className="text-[11px] font-semibold text-navy-800 dark:text-white bg-slate-50 dark:bg-slate-800 rounded px-2 py-1 flex justify-between">
+                  <span>Upluto celkem:</span>
+                  <span>{totalNm > 0 ? `${totalNm.toFixed(1)} nm` : '—'}</span>
+                </div>
+                <L compact label="Motohodin dnes" type="number" value={d.motorH ?? ''} onChange={setField('motorH')} />
+                <L compact label="Motohodin celkem" type="number" value={d.motorHTotal ?? ''} onChange={setField('motorHTotal')} />
+                <L compact label="Hodin plavby" type="number" value={d.sailHours ?? ''} onChange={setField('sailHours')} />
+                <div className="text-[11px] font-semibold text-navy-800 dark:text-white bg-slate-50 dark:bg-slate-800 rounded px-2 py-1 flex justify-between">
+                  <span>Průměrná rychlost:</span>
+                  <span>{avgSpeed ? `${avgSpeed} kn` : '—'}</span>
+                </div>
+              </div>
+            </section>
           </div>
 
-          {(result.logEntries ?? []).length > 0 && (
-            <div>
-              <p className="label">Záznamy do deníku ({selLogs.length}/{result.logEntries.length})</p>
-              <div className="space-y-1.5 max-h-48 overflow-y-auto pr-1">
-                {result.logEntries.map((e, i) => (
-                  <button key={i} type="button" onClick={() => toggleLog(i)}
-                    className={`w-full text-left rounded-xl px-3 py-2 text-xs flex gap-2 items-start transition-colors ${selLogs.includes(i) ? 'bg-ocean-100 dark:bg-ocean-800/30' : 'bg-slate-50 dark:bg-slate-800'}`}>
-                    <Check size={12} className={`mt-0.5 flex-shrink-0 ${selLogs.includes(i) ? 'text-ocean-500' : 'text-slate-300'}`} />
-                    <span>
-                      <span className="text-slate-400 mr-1">{new Date(e.timestamp).toLocaleDateString('cs', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}</span>
-                      {e.weather} {e.windSpeed ? `· ${e.windSpeed}kn ${e.windDirection ?? ''}` : ''}
-                      {e.notes && <span className="block text-slate-500 mt-0.5">{e.notes}</span>}
-                    </span>
-                  </button>
-                ))}
-              </div>
-            </div>
-          )}
+          {/* Notes */}
+          <section>
+            <p className="section-label"><BookOpen size={12} /> Poznámky</p>
+            <textarea
+              className="input text-sm"
+              rows={4}
+              value={d.notes ?? ''}
+              onChange={setField('notes')}
+              placeholder="Průběh plavby, události, setkání s jinými loděmi, technické problémy…"
+            />
+          </section>
 
-          {(result.waypoints ?? []).length > 0 && (
-            <div>
-              <p className="label">Zastávky na trase ({selWps.length}/{result.waypoints.length})</p>
-              <div className="space-y-1.5 max-h-40 overflow-y-auto pr-1">
-                {result.waypoints.map((w, i) => (
-                  <button key={i} type="button" onClick={() => toggleWp(i)}
-                    className={`w-full text-left rounded-xl px-3 py-2 text-xs flex gap-2 items-start transition-colors ${selWps.includes(i) ? 'bg-emerald-50 dark:bg-emerald-900/20' : 'bg-slate-50 dark:bg-slate-800'}`}>
-                    <MapPin size={12} className={`mt-0.5 flex-shrink-0 ${selWps.includes(i) ? 'text-emerald-500' : 'text-slate-300'}`} />
-                    <span>
-                      <span className="font-medium">{w.name}</span>
-                      {w.lat && <span className="text-slate-400 ml-1">{w.lat.toFixed(4)}, {w.lng?.toFixed(4)}</span>}
-                      {w.notes && <span className="block text-slate-500 mt-0.5">{w.notes}</span>}
-                    </span>
-                  </button>
-                ))}
-              </div>
+          {/* Verification */}
+          <section>
+            <p className="section-label">Ověření</p>
+            <div className="grid grid-cols-2 gap-2">
+              <L label="Datum ověření" type="date" value={d.verifyDate ?? ''} onChange={setField('verifyDate')} />
+              <L label="Podpis kapitána" value={d.captainSign ?? ''} onChange={setField('captainSign')} placeholder="Jméno / iniciály" />
             </div>
-          )}
+          </section>
 
-          <div className="grid grid-cols-2 gap-2 pt-1">
-            <button className="btn-ghost" onClick={() => { setPhase('idle'); setResult(null) }}>Zpět</button>
-            <button className="btn-ocean" onClick={doImport} disabled={selLogs.length === 0 && selWps.length === 0}>
-              Importovat ({selLogs.length + selWps.length})
+          {/* Footer actions */}
+          <div className="flex justify-between pt-2 border-t border-slate-100 dark:border-slate-700">
+            <button
+              onClick={() => { if (confirm('Smazat celou stránku deníku?')) onDelete() }}
+              className="btn-ghost text-red-500 flex items-center gap-1.5 text-xs"
+            >
+              <Trash2 size={13} /> Smazat den
             </button>
+            <span className="text-[10px] text-slate-400 flex items-center gap-1">
+              <Save size={11} /> Ukládá se automaticky
+            </span>
           </div>
         </div>
       )}
@@ -155,202 +251,105 @@ function PDFImportModal({ voyageId, onClose }) {
   )
 }
 
-const WEATHER_OPTIONS = ['☀️ Slunečno', '⛅ Polojasno', '☁️ Oblačno', '🌧️ Déšť', '⛈️ Bouřka', '🌫️ Mlha']
-const WIND_DIRS = ['S','SSV','SV','VSV','V','VJV','JV','JJV','J','JJZ','JZ','ZJZ','Z','ZSZ','SZ','SSZ']
-
-function AddLogModal({ voyageId, crew, onClose }) {
-  const addLogEntry = useStore((s) => s.addLogEntry)
-  const [form, setForm] = useState({
-    timestamp: new Date().toISOString().slice(0, 16),
-    position: '',
-    windSpeed: '',
-    windDirection: 'S',
-    weather: '☀️ Slunečno',
-    motorHours: '',
-    watchOfficer: crew[0]?.id ?? '',
-    notes: '',
-  })
-  const f = (k) => (e) => setForm((p) => ({ ...p, [k]: e.target.value }))
-
-  const submit = (e) => {
-    e.preventDefault()
-    const [lat, lng] = form.position.split(',').map((x) => parseFloat(x.trim()))
-    addLogEntry({
-      voyageId,
-      timestamp: new Date(form.timestamp).toISOString(),
-      position: !isNaN(lat) && !isNaN(lng) ? { lat, lng } : null,
-      windSpeed: parseFloat(form.windSpeed) || null,
-      windDirection: form.windDirection,
-      weather: form.weather,
-      motorHours: parseFloat(form.motorHours) || null,
-      watchOfficer: form.watchOfficer || null,
-      notes: form.notes,
-    })
-    onClose()
+// ── Compact labeled input ─────────────────────────────────────────────────
+function L({ label, value, onChange, type = 'text', placeholder, compact }) {
+  if (compact) {
+    return (
+      <label className="flex items-center justify-between gap-2 text-[11px]">
+        <span className="text-slate-500 dark:text-slate-400 shrink-0">{label}</span>
+        <input
+          type={type}
+          className="input text-xs px-2 py-1 w-20 text-right"
+          value={value}
+          onChange={onChange}
+          placeholder={placeholder}
+        />
+      </label>
+    )
   }
-
   return (
-    <form onSubmit={submit} className="space-y-3">
-      <div>
-        <label className="label">Čas záznamu</label>
-        <input className="input" type="datetime-local" value={form.timestamp} onChange={f('timestamp')} />
-      </div>
-      <div>
-        <label className="label">Počasí</label>
-        <div className="flex flex-wrap gap-1.5">
-          {WEATHER_OPTIONS.map((w) => (
-            <button
-              key={w}
-              type="button"
-              onClick={() => setForm((p) => ({ ...p, weather: w }))}
-              className={`badge text-sm px-2.5 py-1.5 transition-colors ${form.weather === w ? 'bg-ocean-500 text-white' : 'bg-slate-100 text-slate-600 dark:bg-slate-700 dark:text-slate-300'}`}
-            >
-              {w}
-            </button>
-          ))}
-        </div>
-      </div>
-      <div className="grid grid-cols-2 gap-3">
-        <div>
-          <label className="label">Vítr (uzly)</label>
-          <input className="input" type="number" placeholder="12" value={form.windSpeed} onChange={f('windSpeed')} />
-        </div>
-        <div>
-          <label className="label">Směr větru</label>
-          <select className="input" value={form.windDirection} onChange={f('windDirection')}>
-            {WIND_DIRS.map((d) => <option key={d}>{d}</option>)}
-          </select>
-        </div>
-      </div>
-      <div className="grid grid-cols-2 gap-3">
-        <div>
-          <label className="label">Motorové hodiny</label>
-          <input className="input" type="number" step="0.1" placeholder="0.0" value={form.motorHours} onChange={f('motorHours')} />
-        </div>
-        {crew.length > 0 && (
-          <div>
-            <label className="label">Hlídka</label>
-            <select className="input" value={form.watchOfficer} onChange={f('watchOfficer')}>
-              <option value="">—</option>
-              {crew.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
-            </select>
-          </div>
-        )}
-      </div>
-      <div>
-        <label className="label">Poloha (lat, lng)</label>
-        <input className="input" placeholder="43.1729, 16.4412" value={form.position} onChange={f('position')} />
-      </div>
-      <div>
-        <label className="label">Poznámky</label>
-        <textarea className="input" rows={3} placeholder="Plavba pod plachtami, viditelnost 10 NM..." value={form.notes} onChange={f('notes')} />
-      </div>
-      <button type="submit" className="btn-ocean w-full">Uložit záznam</button>
-    </form>
+    <label className="block">
+      <span className="text-[11px] font-medium text-slate-500 dark:text-slate-400">{label}</span>
+      <input
+        type={type}
+        className="input text-sm mt-0.5"
+        value={value}
+        onChange={onChange}
+        placeholder={placeholder}
+      />
+    </label>
   )
 }
 
+// ── Main page ─────────────────────────────────────────────────────────────
 export default function LogPage() {
-  const [showAdd, setShowAdd] = useState(false)
-  const [showPDF, setShowPDF] = useState(false)
-  const { voyages, activeVoyageId, getVoyageLog, deleteLogEntry } = useStore()
+  const { voyages, activeVoyageId, getVoyageLogDays, addLogDay, updateLogDay, deleteLogDay } = useStore()
   const voyage = voyages.find((v) => v.id === activeVoyageId)
-  const entries = getVoyageLog(activeVoyageId)
-  const totalMotorH = entries.reduce((s, e) => s + (e.motorHours ?? 0), 0)
-  const crew = voyage?.crew ?? []
+  const days = getVoyageLogDays(activeVoyageId)
 
   if (!voyage) {
     return (
       <div className="flex flex-col items-center justify-center min-h-[60vh] p-8 text-center">
         <BookOpen size={48} className="text-slate-200 mb-4" />
         <p className="text-slate-500 font-medium">Žádná aktivní výprava</p>
+        <p className="text-slate-400 text-sm mt-1">Nejdřív si založ výpravu v Přehledu</p>
       </div>
     )
   }
 
+  const createDay = () => {
+    const today = new Date().toISOString().slice(0, 10)
+    addLogDay({
+      voyageId: activeVoyageId,
+      date: today,
+      rows: [emptyRow()],
+      watches: [],
+    })
+  }
+
+  const totalNm = days.reduce((s, d) =>
+    s + (parseFloat(d.sailNm) || 0) + (parseFloat(d.motorNm) || 0), 0)
+  const totalMotorH = days.reduce((s, d) => s + (parseFloat(d.motorH) || 0), 0)
+
   return (
-    <div className="p-4 space-y-4">
-      <div className="flex items-center justify-between pt-2">
-        <div>
-          <h1 className="text-xl font-bold text-navy-800 dark:text-white">Lodní deník</h1>
-          {totalMotorH > 0 && (
-            <p className="text-xs text-slate-400 mt-0.5">{totalMotorH.toFixed(1)} mot. hodin celkem</p>
-          )}
+    <div className="p-4 pb-24 max-w-5xl mx-auto">
+      {/* Header */}
+      <div className="flex items-center justify-between pt-2 mb-4">
+        <div className="flex items-center gap-2">
+          <BookOpen size={22} className="text-ocean-500" />
+          <div>
+            <h1 className="text-xl font-bold text-navy-800 dark:text-white leading-tight">Lodní deník</h1>
+            <p className="text-[11px] text-slate-400">
+              {days.length} {days.length === 1 ? 'den' : days.length >= 2 && days.length <= 4 ? 'dny' : 'dnů'}
+              {totalNm > 0 && ` · ${totalNm.toFixed(1)} nm`}
+              {totalMotorH > 0 && ` · ${totalMotorH.toFixed(1)} mot.h`}
+            </p>
+          </div>
         </div>
-        <div className="flex gap-2">
-          <button onClick={() => setShowPDF(true)} className="btn-ghost flex items-center gap-1.5 text-sm">
-            <FileText size={15} /> PDF
-          </button>
-          <button onClick={() => setShowAdd(true)} className="btn-ocean flex items-center gap-1.5">
-            <Plus size={16} /> Záznam
-          </button>
-        </div>
+        <button onClick={createDay} className="btn-ocean flex items-center gap-1.5 text-sm">
+          <Plus size={15} /> Nový den
+        </button>
       </div>
 
-      {entries.length === 0 ? (
-        <div
-          className="card border-dashed border-2 flex flex-col items-center py-16 text-slate-400 cursor-pointer"
-          onClick={() => setShowAdd(true)}
-        >
-          <BookOpen size={40} className="mb-3 text-slate-200" />
-          <p className="text-sm font-medium">Žádné záznamy</p>
-          <p className="text-xs mt-1">Zaznamenávej průběh plavby</p>
+      {days.length === 0 ? (
+        <div className="card border-dashed border-2 flex flex-col items-center py-16 text-center">
+          <Ship size={40} className="text-slate-200 mb-3" />
+          <p className="font-semibold text-slate-500">Deník je prázdný</p>
+          <p className="text-xs text-slate-400 mt-1 mb-4">Vytvoř si první den a zaznamenávej plavbu<br/>v klasickém formátu lodního deníku</p>
+          <button onClick={createDay} className="btn-ocean flex items-center gap-1.5 text-sm">
+            <Plus size={15} /> Založit první den
+          </button>
         </div>
       ) : (
-        <div className="space-y-3">
-          {entries.map((entry) => {
-            const officer = crew.find((c) => c.id === entry.watchOfficer)
-            return (
-              <div key={entry.id} className="card space-y-2">
-                <div className="flex items-start justify-between">
-                  <div>
-                    <p className="text-xs text-slate-400">
-                      {new Date(entry.timestamp).toLocaleDateString('cs', { weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}
-                      {officer && <span className="ml-2">· {officer.name}</span>}
-                    </p>
-                    <p className="font-semibold text-sm mt-0.5">{entry.weather}</p>
-                  </div>
-                  <button onClick={() => deleteLogEntry(entry.id)} className="p-1.5 text-slate-300 hover:text-red-400 transition-colors">
-                    <Trash2 size={14} />
-                  </button>
-                </div>
-                <div className="flex flex-wrap gap-2">
-                  {entry.windSpeed && (
-                    <span className="badge bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300">
-                      <Wind size={11} /> {entry.windSpeed} uzlů {entry.windDirection}
-                    </span>
-                  )}
-                  {entry.motorHours && (
-                    <span className="badge bg-orange-50 dark:bg-orange-900/30 text-orange-700 dark:text-orange-300">
-                      <Gauge size={11} /> Motor {entry.motorHours} h
-                    </span>
-                  )}
-                  {entry.position && (
-                    <span className="badge bg-slate-100 dark:bg-slate-700 text-slate-500 dark:text-slate-400">
-                      📍 {entry.position.lat.toFixed(3)}, {entry.position.lng.toFixed(3)}
-                    </span>
-                  )}
-                </div>
-                {entry.notes && (
-                  <p className="text-sm text-slate-600 dark:text-slate-300 bg-slate-50 dark:bg-slate-700 rounded-xl px-3 py-2">
-                    {entry.notes}
-                  </p>
-                )}
-              </div>
-            )
-          })}
-        </div>
-      )}
-
-      {showAdd && (
-        <Modal title="Nový záznam" onClose={() => setShowAdd(false)}>
-          <AddLogModal voyageId={activeVoyageId} crew={crew} onClose={() => setShowAdd(false)} />
-        </Modal>
-      )}
-      {showPDF && (
-        <Modal title="Importovat z PDF" onClose={() => setShowPDF(false)}>
-          <PDFImportModal voyageId={activeVoyageId} onClose={() => setShowPDF(false)} />
-        </Modal>
+        days.map((day, i) => (
+          <DayCard
+            key={day.id}
+            day={day}
+            dayNumber={i + 1}
+            onUpdate={(patch) => updateLogDay(day.id, patch)}
+            onDelete={() => deleteLogDay(day.id)}
+          />
+        ))
       )}
     </div>
   )

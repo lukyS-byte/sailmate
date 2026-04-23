@@ -11,6 +11,7 @@ const useStore = create(
       waypoints: [],
       supplies: [],
       logbook: [],
+      logDays: [],       // Nový klasický lodní deník — stránky po dnech
       regattas: [],
       activeVoyageId: null,
 
@@ -104,6 +105,16 @@ const useStore = create(
       deleteRegatta: (id) =>
         set((s) => ({ regattas: s.regattas.filter((r) => r.id !== id) })),
 
+      // ── LogDays (klasický lodní deník) ──────────────────
+      addLogDay: (data) =>
+        set((s) => ({ logDays: [...s.logDays, { id: uid(), rows: [], watches: [], ...data }] })),
+      updateLogDay: (id, data) =>
+        set((s) => ({ logDays: s.logDays.map((d) => (d.id === id ? { ...d, ...data } : d)) })),
+      deleteLogDay: (id) =>
+        set((s) => ({ logDays: s.logDays.filter((d) => d.id !== id) })),
+      getVoyageLogDays: (voyageId) =>
+        get().logDays.filter((d) => d.voyageId === voyageId).sort((a, b) => (a.date ?? '').localeCompare(b.date ?? '')),
+
       // ── Logbook ─────────────────────────────────────────
       addLogEntry: (data) =>
         set((s) => ({
@@ -125,13 +136,14 @@ const useStore = create(
           waypoints: data.waypoints ?? [],
           supplies: data.supplies ?? [],
           logbook: data.logbook ?? [],
+          logDays: data.logDays ?? [],
           activeVoyageId: data.activeVoyageId ?? null,
         }),
       clearData: () =>
-        set({ voyages: [], expenses: [], waypoints: [], supplies: [], logbook: [], regattas: [], activeVoyageId: null }),
+        set({ voyages: [], expenses: [], waypoints: [], supplies: [], logbook: [], logDays: [], regattas: [], activeVoyageId: null }),
       getSnapshot: () => {
-        const { voyages, expenses, waypoints, supplies, logbook, regattas, activeVoyageId } = get()
-        return { voyages, expenses, waypoints, supplies, logbook, regattas, activeVoyageId }
+        const { voyages, expenses, waypoints, supplies, logbook, logDays, regattas, activeVoyageId } = get()
+        return { voyages, expenses, waypoints, supplies, logbook, logDays, regattas, activeVoyageId }
       },
     }),
     {
