@@ -427,8 +427,8 @@ export default function RegataPage() {
               </div>
             )}
 
-            {/* Days */}
-            {(regatta.days ?? []).map((day, di) => (
+            {/* Days — jen dny se závodami */}
+            {(regatta.days ?? []).filter((d) => (d.races ?? []).length > 0).map((day, di) => (
               <div key={di} className="mb-5">
                 {/* Day header */}
                 <div className="flex items-center gap-2 mb-3">

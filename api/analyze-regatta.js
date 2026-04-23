@@ -48,8 +48,10 @@ Vrať JSON kde jsou rozjížďky seskupeny PO DNECH. Formát:
 
 Pravidla:
 - Zahrň KAŽDOU rozjížďku z dokumentu, nezastavuj se dříve
+- Do days[] zahrň POUZE dny kdy se skutečně závodí (kdy je alespoň jedna rozjížďka)
+- Dny bez závodů (příjezd, volno, předání lodí, závěrečná večeře) NEZAHRNUJ
 - Pokud jsou na jedné stránce dvě varianty trasy (různé třídy lodí), zahrň tu detailnější / delší
-- pageIndex = index stránky PDF (0 = první strana) kde je mapa/schéma pro danou rozjížďku
+- pageIndex = index stránky PDF (0 = první strana) kde je MAPA/SCHÉMA trasy pro danou rozjížďku (ne strana s textem pravidel)
 - Vrať POUZE JSON, žádný jiný text
 
 ${text ? `Text z PDF:\n${text.slice(0, 25000)}` : ''}`
