@@ -269,64 +269,79 @@ export default function Dashboard() {
         </button>
       </div>
 
-      {/* Dnešní regata */}
-      {todayRegatta && todayDay && (
-        <button
-          onClick={() => navigate('/regata')}
-          className="w-full text-left rounded-2xl overflow-hidden shadow-md bg-gradient-to-br from-ocean-500 to-ocean-600 text-white"
-        >
-          <div className="p-4">
-            <div className="flex items-center justify-between mb-1">
-              <div className="flex items-center gap-2">
-                <Trophy size={16} />
-                <span className="text-[11px] font-semibold uppercase tracking-wide text-white/80">Dnes — {todayDay.dayName}</span>
-              </div>
-              <ChevronRight size={18} className="text-white/70" />
+      {/* Dnešní program — vždy viditelná karta */}
+      <button
+        onClick={() => navigate('/regata')}
+        className="w-full text-left rounded-2xl overflow-hidden shadow-md bg-gradient-to-br from-ocean-500 to-ocean-600 text-white"
+      >
+        <div className="p-4">
+          <div className="flex items-center justify-between mb-1">
+            <div className="flex items-center gap-2">
+              {todayRegatta ? <Trophy size={16} /> : <Anchor size={16} />}
+              <span className="text-[11px] font-semibold uppercase tracking-wide text-white/80">
+                Dnes{todayDay ? ` — ${todayDay.dayName}` : ''}
+              </span>
             </div>
-            <p className="text-lg font-bold leading-tight mb-0.5">{todayRegatta.event || 'Regata'}</p>
-            {todayRegatta.location && (
-              <p className="text-xs text-white/75">{todayRegatta.location}</p>
-            )}
-
-            {(todayDay.races ?? []).length > 0 ? (
-              <div className="mt-3 space-y-2">
-                {todayDay.races.map((race) => (
-                  <div key={race.number} className="rounded-lg bg-white/15 backdrop-blur px-3 py-2">
-                    <div className="flex items-center gap-2">
-                      <span className="w-6 h-6 rounded-full bg-white text-ocean-600 text-xs font-bold flex items-center justify-center shrink-0">
-                        {race.number}
-                      </span>
-                      <span className="text-sm font-semibold flex-1 truncate">{race.name || `Rozjížďka ${race.number}`}</span>
-                    </div>
-                    <div className="flex flex-wrap gap-x-3 gap-y-0.5 mt-1.5 pl-8">
-                      {race.startTime && (
-                        <span className="text-[11px] text-white/90 flex items-center gap-1">
-                          <Clock size={10} />{race.startTime}
-                        </span>
-                      )}
-                      {race.distanceNm != null && (
-                        <span className="text-[11px] text-white/90 flex items-center gap-1">
-                          <Ruler size={10} />{race.distanceNm} nm
-                        </span>
-                      )}
-                      {race.startMark && (
-                        <span className="text-[11px] text-white/90 flex items-center gap-1 truncate">
-                          <Flag size={10} />{race.startMark}
-                          {race.finishMark && ` → ${race.finishMark}`}
-                        </span>
-                      )}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            ) : todayDay.dayNotes ? (
-              <div className="mt-3 rounded-lg bg-white/15 backdrop-blur px-3 py-2.5">
-                <p className="text-xs leading-relaxed text-white/95">{todayDay.dayNotes}</p>
-              </div>
-            ) : null}
+            <ChevronRight size={18} className="text-white/70" />
           </div>
-        </button>
-      )}
+
+          {todayRegatta && todayDay ? (
+            <>
+              <p className="text-lg font-bold leading-tight mb-0.5">{todayRegatta.event || 'Regata'}</p>
+              {todayRegatta.location && (
+                <p className="text-xs text-white/75">{todayRegatta.location}</p>
+              )}
+
+              {(todayDay.races ?? []).length > 0 ? (
+                <div className="mt-3 space-y-2">
+                  {todayDay.races.map((race) => (
+                    <div key={race.number} className="rounded-lg bg-white/15 backdrop-blur px-3 py-2">
+                      <div className="flex items-center gap-2">
+                        <span className="w-6 h-6 rounded-full bg-white text-ocean-600 text-xs font-bold flex items-center justify-center shrink-0">
+                          {race.number}
+                        </span>
+                        <span className="text-sm font-semibold flex-1 truncate">{race.name || `Rozjížďka ${race.number}`}</span>
+                      </div>
+                      <div className="flex flex-wrap gap-x-3 gap-y-0.5 mt-1.5 pl-8">
+                        {race.startTime && (
+                          <span className="text-[11px] text-white/90 flex items-center gap-1">
+                            <Clock size={10} />{race.startTime}
+                          </span>
+                        )}
+                        {race.distanceNm != null && (
+                          <span className="text-[11px] text-white/90 flex items-center gap-1">
+                            <Ruler size={10} />{race.distanceNm} nm
+                          </span>
+                        )}
+                        {race.startMark && (
+                          <span className="text-[11px] text-white/90 flex items-center gap-1 truncate">
+                            <Flag size={10} />{race.startMark}
+                            {race.finishMark && ` → ${race.finishMark}`}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : todayDay.dayNotes ? (
+                <div className="mt-3 rounded-lg bg-white/15 backdrop-blur px-3 py-2.5">
+                  <p className="text-xs leading-relaxed text-white/95">{todayDay.dayNotes}</p>
+                </div>
+              ) : null}
+            </>
+          ) : (
+            <>
+              <p className="text-lg font-bold leading-tight">Klidné vody</p>
+              <p className="text-sm text-white/85 mt-0.5">Dnes žádná rozjížďka na programu — ideální den na údržbu lanoví a doplnění zásob. ⚓</p>
+              <div className="mt-3 flex items-center gap-2 text-[11px] text-white/75">
+                <Navigation size={11} />
+                <span>Nahraj lodní deník regaty a program ti tu bude svítit automaticky</span>
+              </div>
+            </>
+          )}
+        </div>
+      </button>
+
 
       {/* Active voyage */}
       {active ? (
