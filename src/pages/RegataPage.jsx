@@ -345,14 +345,24 @@ export default function RegataPage() {
     if (!file || file.type !== 'application/pdf') { setError('Vyberte PDF soubor.'); return }
     setError('')
     setUploading(true)
+    let stage = 'start'
     try {
+      stage = 'načítání PDF'
       setUploadStep('Načítám PDF…')
       const { pageData, text } = await extractPdfData(file)
+      stage = 'volání Claude API'
       setUploadStep('Claude analyzuje rozjížďky…')
       const result = await analyzeRegatta(text)
       setPreview({ result, pageData })
     } catch (e) {
-      setError(e.message)
+      const detail = [
+        `[${stage}]`,
+        e?.name && `${e.name}:`,
+        e?.message || String(e),
+        e?.stack && `\n${String(e.stack).split('\n').slice(0, 3).join('\n')}`,
+      ].filter(Boolean).join(' ')
+      setError(detail)
+      console.error('Regata error:', e)
     } finally {
       setUploading(false)
       setUploadStep('')
@@ -389,9 +399,9 @@ export default function RegataPage() {
 
       {/* Error */}
       {error && (
-        <div className="mb-4 rounded-lg bg-red-50 border border-red-200 text-red-700 px-4 py-3 text-sm flex items-center gap-2">
-          <span className="flex-1">{error}</span>
-          <button onClick={() => setError('')}><X size={14} /></button>
+        <div className="mb-4 rounded-lg bg-red-50 border border-red-200 text-red-700 px-4 py-3 text-xs flex items-start gap-2">
+          <pre className="flex-1 whitespace-pre-wrap break-words font-mono leading-relaxed">{error}</pre>
+          <button onClick={() => setError('')} className="shrink-0"><X size={14} /></button>
         </div>
       )}
 
