@@ -7,7 +7,9 @@ export default async function handler(req, res) {
   const oauthToken = process.env.CLAUDE_CODE_OAUTH_TOKEN
   if (!key && !oauthToken) return res.status(503).json({ error: 'ANTHROPIC_KEY není nastaven' })
 
-  const authHeaders = key ? { 'x-api-key': key } : { 'Authorization': `Bearer ${oauthToken}` }
+  const authHeaders = key
+    ? { 'x-api-key': key }
+    : { 'Authorization': `Bearer ${oauthToken}`, 'anthropic-beta': 'oauth-2025-04-20' }
   const { text = '', images = [] } = req.body
 
   const imageContent = images.slice(0, 10).map((b64) => ({
