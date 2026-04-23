@@ -340,6 +340,7 @@ export default function RegataPage() {
   const fileInputRef = useRef(null)
 
   const voyageRegattas = regattas.filter((r) => r.voyageId === activeVoyageId)
+  const BUILD_VERSION = 'v5-debug-2026-04-23'
 
   const handleFile = async (file) => {
     if (!file || file.type !== 'application/pdf') { setError('Vyberte PDF soubor.'); return }
@@ -384,6 +385,7 @@ export default function RegataPage() {
         <div className="flex items-center gap-2">
           <Trophy size={22} className="text-ocean-500" />
           <h1 className="text-xl font-bold text-navy-800 dark:text-white">Regata</h1>
+          <span className="text-[10px] text-slate-400 ml-1">{BUILD_VERSION}</span>
         </div>
         {voyageRegattas.length > 0 && (
           <button
