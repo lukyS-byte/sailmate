@@ -30,7 +30,12 @@ async function renderPageWithCrop(page) {
   // canvas_y = b*pdfX + d*pdfY + f
   const [, tb,, td,, tf] = vp.transform  // b, d, f
 
-  const content = await page.getTextContent()
+  let content
+  try {
+    content = await page.getTextContent()
+  } catch {
+    return { full, crop: null }  // fallback — žádný ořez, ale full stránka OK
+  }
   const textYs = []
 
   for (const item of content.items ?? []) {
@@ -87,13 +92,17 @@ async function extractPdfData(file) {
   // pageData[i] = { full, crop } nebo null
   const pageData = []
 
-  // Text ze všech stran
+  // Text ze všech stran (s fallbackem když getTextContent selže)
   let text = ''
   for (let i = 1; i <= totalPages; i++) {
-    const page = await pdf.getPage(i)
-    const content = await page.getTextContent()
-    text += `\n=== STRANA ${i} ===\n`
-    text += Array.from(content.items ?? []).map((it) => it.str ?? '').join(' ')
+    try {
+      const page = await pdf.getPage(i)
+      const content = await page.getTextContent()
+      text += `\n=== STRANA ${i} ===\n`
+      text += Array.from(content.items ?? []).map((it) => it.str ?? '').join(' ')
+    } catch (err) {
+      console.warn(`Text extraction failed on page ${i}:`, err)
+    }
   }
 
   // Obrázky + ořez mapy
@@ -340,7 +349,7 @@ export default function RegataPage() {
   const fileInputRef = useRef(null)
 
   const voyageRegattas = regattas.filter((r) => r.voyageId === activeVoyageId)
-  const BUILD_VERSION = 'v5-debug-2026-04-23'
+  const BUILD_VERSION = 'v6-pdfjs4'
 
   const handleFile = async (file) => {
     if (!file || file.type !== 'application/pdf') { setError('Vyberte PDF soubor.'); return }
