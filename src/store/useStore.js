@@ -134,7 +134,15 @@ const useStore = create(
         return { voyages, expenses, waypoints, supplies, logbook, regattas, activeVoyageId }
       },
     }),
-    { name: 'sailmate-v1' }
+    {
+      name: 'sailmate-v1',
+      // Do localStorage neukládat těžká data (obrázky PDF stránek v regatách)
+      // — ty jdou jen do Supabase cloudu. localStorage má na iOS limit ~5 MB.
+      partialize: (state) => ({
+        ...state,
+        regattas: (state.regattas ?? []).map(({ pageData, ...r }) => r),
+      }),
+    }
   )
 )
 
