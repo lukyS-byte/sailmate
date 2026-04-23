@@ -171,8 +171,8 @@ function PreviewDialog({ result, onConfirm, onCancel }) {
   const totalRaces = (result.days ?? []).reduce((sum, d) => sum + (d.races ?? []).length, 0)
 
   return (
-    <div className="fixed inset-0 z-40 bg-black/60 flex items-end sm:items-center justify-center p-0 sm:p-4">
-      <div className="bg-white dark:bg-navy-900 w-full sm:max-w-lg rounded-t-2xl sm:rounded-2xl shadow-2xl max-h-[85vh] flex flex-col">
+    <div className="fixed inset-0 z-[60] bg-black/60 flex items-end sm:items-center justify-center p-0 sm:p-4">
+      <div className="bg-white dark:bg-navy-900 w-full sm:max-w-lg rounded-t-2xl sm:rounded-2xl shadow-2xl max-h-[85dvh] sm:max-h-[85vh] flex flex-col">
         <div className="px-5 pt-5 pb-4 border-b border-slate-100 dark:border-slate-700">
           <h2 className="font-bold text-navy-800 dark:text-white text-lg">{result.event || 'Regata'}</h2>
           {(result.location || result.dates) && (
@@ -210,7 +210,7 @@ function PreviewDialog({ result, onConfirm, onCancel }) {
           ))}
         </div>
 
-        <div className="px-5 pb-5 pt-3 border-t border-slate-100 dark:border-slate-700 flex gap-2">
+        <div className="px-5 pb-[max(1.25rem,env(safe-area-inset-bottom))] pt-3 border-t border-slate-100 dark:border-slate-700 flex gap-2 bg-white dark:bg-navy-900">
           <button className="btn-ghost flex-1" onClick={onCancel}>Zrušit</button>
           <button className="btn-ocean flex-1 flex items-center justify-center gap-1.5" onClick={() => onConfirm(result)}>
             <Check size={15} />
@@ -349,7 +349,7 @@ export default function RegataPage() {
   const fileInputRef = useRef(null)
 
   const voyageRegattas = regattas.filter((r) => r.voyageId === activeVoyageId)
-  const BUILD_VERSION = 'v6-pdfjs4'
+  const BUILD_VERSION = 'v7'
 
   const handleFile = async (file) => {
     if (!file || file.type !== 'application/pdf') { setError('Vyberte PDF soubor.'); return }
