@@ -105,10 +105,41 @@ function DayCard({ day, dayNumber, onUpdate, onDelete }) {
             </div>
           </section>
 
-          {/* Entries table */}
+          {/* Entries */}
           <section>
             <p className="section-label"><Navigation size={12} /> Záznamy plavby</p>
-            <div className="overflow-x-auto -mx-3 sm:-mx-4 px-3 sm:px-4">
+
+            {/* Mobilní pohled — karty */}
+            <div className="sm:hidden space-y-2">
+              {(d.rows ?? []).map((row, i) => (
+                <div key={i} className="rounded-xl border border-slate-200 dark:border-slate-700 p-2.5 bg-slate-50/60 dark:bg-slate-800/40">
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wide">Záznam #{i + 1}</span>
+                    <button onClick={() => removeRow(i)} className="text-slate-300 hover:text-red-500 p-1">
+                      <Trash2 size={12} />
+                    </button>
+                  </div>
+                  <div className="grid grid-cols-2 gap-1.5">
+                    {LOG_COLS.map((c) => (
+                      <label key={c.key} className={c.key === 'info' ? 'col-span-2' : ''}>
+                        <span className="block text-[9px] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide mb-0.5">
+                          {c.label}
+                        </span>
+                        <input
+                          className="w-full rounded-lg bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 px-2 py-1.5 text-xs focus:outline-none focus:ring-1 focus:ring-ocean-500"
+                          placeholder={c.ph}
+                          value={row[c.key] ?? ''}
+                          onChange={(e) => setRow(i, c.key, e.target.value)}
+                        />
+                      </label>
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            {/* Desktop pohled — tabulka */}
+            <div className="hidden sm:block overflow-x-auto -mx-4 px-4">
               <table className="text-[11px] border-collapse">
                 <thead>
                   <tr className="text-slate-500 dark:text-slate-400">
@@ -146,8 +177,9 @@ function DayCard({ day, dayNumber, onUpdate, onDelete }) {
                 </tbody>
               </table>
             </div>
+
             <button onClick={addRow} className="btn-ghost mt-2 text-xs flex items-center gap-1.5">
-              <Plus size={12} /> Přidat řádek
+              <Plus size={12} /> Přidat záznam
             </button>
           </section>
 
