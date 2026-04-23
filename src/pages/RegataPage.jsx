@@ -2,7 +2,7 @@ import { useState, useRef } from 'react'
 import {
   Trophy, Upload, Trash2, Loader, ChevronDown, ChevronUp,
   X, ZoomIn, Wind, Clock, Ruler, Info, Flag, Navigation,
-  MapPin, Check, ArrowRight, Calendar,
+  MapPin, Check, ArrowRight, Calendar, BookOpen,
 } from 'lucide-react'
 import * as pdfjsLib from 'pdfjs-dist/legacy/build/pdf.mjs'
 import workerUrl from 'pdfjs-dist/legacy/build/pdf.worker.min.mjs?url'
@@ -131,6 +131,31 @@ function ImageLightbox({ src, onClose }) {
   )
 }
 
+// ─── Practical info card ───────────────────────────────────────────────────
+
+function PracticalInfoCard({ item }) {
+  const [open, setOpen] = useState(false)
+  return (
+    <div className="card mb-2 p-0 overflow-hidden">
+      <button
+        className="w-full flex items-center gap-3 px-4 py-3 text-left hover:bg-slate-50 dark:hover:bg-slate-800/40 transition-colors"
+        onClick={() => setOpen((v) => !v)}
+      >
+        <BookOpen size={15} className="text-ocean-500 shrink-0" />
+        <span className="flex-1 text-sm font-semibold text-navy-800 dark:text-white">{item.title}</span>
+        {open
+          ? <ChevronUp size={16} className="text-slate-400 shrink-0" />
+          : <ChevronDown size={16} className="text-slate-400 shrink-0" />}
+      </button>
+      {open && (
+        <div className="px-4 pb-3 pt-1 border-t border-slate-100 dark:border-slate-700">
+          <p className="text-sm text-slate-600 dark:text-slate-400 leading-relaxed whitespace-pre-wrap">{item.content}</p>
+        </div>
+      )}
+    </div>
+  )
+}
+
 // ─── Preview dialog ─────────────────────────────────────────────────────────
 
 function PreviewDialog({ result, onConfirm, onCancel }) {
@@ -155,6 +180,7 @@ function PreviewDialog({ result, onConfirm, onCancel }) {
         <div className="overflow-y-auto flex-1 px-5 py-3 space-y-3">
           <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide">
             Nalezeno {totalRaces} rozjížděk v {(result.days ?? []).length} dnech
+            {(result.practicalInfo ?? []).length > 0 && ` · ${result.practicalInfo.length} praktických info`}
           </p>
           {(result.days ?? []).map((day, di) => (
             <div key={di}>
@@ -424,6 +450,22 @@ export default function RegataPage() {
               <div className="mb-4 rounded-xl bg-ocean-50 dark:bg-ocean-900/20 border border-ocean-100 dark:border-ocean-800 px-4 py-3 flex gap-3">
                 <Info size={15} className="text-ocean-500 shrink-0 mt-0.5" />
                 <p className="text-sm text-slate-700 dark:text-slate-300 leading-relaxed">{regatta.generalNotes}</p>
+              </div>
+            )}
+
+            {/* Praktické informace */}
+            {(regatta.practicalInfo ?? []).length > 0 && (
+              <div className="mb-5">
+                <div className="flex items-center gap-2 mb-3">
+                  <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-ocean-500 text-white">
+                    <BookOpen size={12} />
+                    <span className="text-xs font-semibold">Praktické informace</span>
+                  </div>
+                  <div className="flex-1 h-px bg-slate-200 dark:bg-slate-700" />
+                </div>
+                {regatta.practicalInfo.map((item, i) => (
+                  <PracticalInfoCard key={i} item={item} />
+                ))}
               </div>
             )}
 

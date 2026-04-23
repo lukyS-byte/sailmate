@@ -22,7 +22,13 @@ Vrať JSON se VŠEMI dny regaty od příjezdu po odjezd, seskupenými po dnech. 
   "event": "název regaty",
   "location": "místo konání",
   "dates": "termín",
-  "generalNotes": "nejdůležitější obecné pokyny: VHF kanál, pravidla, kontakty",
+  "generalNotes": "krátce: nejdůležitější obecné pokyny (VHF kanál, kontakty)",
+  "practicalInfo": [
+    {
+      "title": "název tématu, např. Přejímka lodí, Protesty, Bezpečnost, Kontrolní body",
+      "content": "podrobný text s praktickými informacemi — zachovej detaily (časy, telefony, postupy, odkazy na smlouvy atd.)"
+    }
+  ],
   "days": [
     {
       "date": "YYYY-MM-DD",
@@ -46,6 +52,7 @@ Vrať JSON se VŠEMI dny regaty od příjezdu po odjezd, seskupenými po dnech. 
 }
 
 Pravidla:
+- practicalInfo = důležité kapitánské informace (přejímka/předání lodí, protesty, bezpečnost, kontrolní body, VHF, kontakty, pojištění). Zachovej VŠECHNY konkrétní detaily: časy, telefony, částky, postupy krok po kroku. Každé téma = jeden objekt title+content.
 - Zahrň KAŽDÝ den regaty — závodní i nezávodní (příjezd, volno, závěrečná večeře)
 - Nezávodní dny: races = [], dayNotes = popis programu s časy
 - Závodní dny: races = seznam závodů, dayNotes = null
