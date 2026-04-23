@@ -10,6 +10,7 @@ import SuppliesPage from './pages/SuppliesPage'
 import ToolsPage from './pages/ToolsPage'
 import RegataPage from './pages/RegataPage'
 import LogPage from './pages/LogPage'
+import TrackPage from './pages/TrackPage'
 import AuthPage from './pages/AuthPage'
 import SharePage from './pages/SharePage'
 import JoinPage from './pages/JoinPage'
@@ -102,6 +103,7 @@ export default function App() {
         <Route path="/tools" element={<ToolsPage />} />
         <Route path="/regata" element={<RegataPage />} />
         <Route path="/log" element={<LogPage />} />
+        <Route path="/track" element={<TrackPage />} />
         <Route path="/share/:token" element={<SharePage />} />
         <Route path="/join" element={<JoinPage />} />
         <Route path="/privacy" element={<PrivacyPage />} />

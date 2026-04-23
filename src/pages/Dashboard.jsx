@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Anchor, Users, Wallet, Map, Wind, Calendar, ChevronRight, Plus, Sailboat, Users2, Trophy, Clock, Ruler, Navigation, Flag } from 'lucide-react'
+import { Anchor, Users, Wallet, Map, Wind, Calendar, ChevronRight, Plus, Sailboat, Users2, Trophy, Clock, Ruler, Navigation, Flag, Activity } from 'lucide-react'
 import useStore from '../store/useStore'
 import { splitExpenses, formatCurrency } from '../utils/calc'
 import Modal from '../components/Modal'
@@ -237,7 +237,7 @@ function NewVoyageModal({ onClose }) {
 export default function Dashboard() {
   const [showNew, setShowNew] = useState(false)
   const navigate = useNavigate()
-  const { voyages, expenses, regattas, activeVoyageId, setActiveVoyage } = useStore()
+  const { voyages, expenses, regattas, activeVoyageId, setActiveVoyage, activeTrackId } = useStore()
   const active = voyages.find((v) => v.id === activeVoyageId)
   const voyageExpenses = expenses.filter((e) => e.voyageId === activeVoyageId)
   const totalExpenses = voyageExpenses.reduce((s, e) => s + e.amount, 0)
@@ -268,6 +268,20 @@ export default function Dashboard() {
           <Plus size={16} /> Nová výprava
         </button>
       </div>
+
+      {/* Live tracking banner */}
+      {activeTrackId && (
+        <button
+          onClick={() => navigate('/track')}
+          className="w-full rounded-2xl bg-red-500 text-white px-4 py-3 flex items-center justify-between shadow-md"
+        >
+          <div className="flex items-center gap-2">
+            <span className="w-2.5 h-2.5 rounded-full bg-white animate-pulse"></span>
+            <span className="text-sm font-semibold">Právě trackuje plavbu</span>
+          </div>
+          <ChevronRight size={16} />
+        </button>
+      )}
 
       {/* Dnešní program — vždy viditelná karta */}
       <button
@@ -412,6 +426,7 @@ export default function Dashboard() {
             <QuickLink icon={<Wallet size={18} className="text-amber-500" />} label="Přidat výdaj" sub="Rozdělit náklady" to="/expenses" state={{ openAdd: true }} />
             <QuickLink icon={<Map size={18} className="text-emerald-500" />} label="Trasa" sub="Waypoints & čas" to="/route" />
             <QuickLink icon={<Wind size={18} className="text-purple-500" />} label="Lodní deník" sub="Záznamy plavby" to="/log" />
+            <QuickLink icon={<Activity size={18} className="text-red-500" />} label="Tracking" sub="GPS záznam plavby" to="/track" />
           </div>
         </div>
       )}

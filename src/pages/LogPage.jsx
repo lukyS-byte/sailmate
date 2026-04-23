@@ -2,9 +2,24 @@ import { useState } from 'react'
 import {
   Plus, Trash2, BookOpen, ChevronDown, ChevronUp, Calendar, Anchor,
   Navigation, Wind, Eye, Droplets, Gauge, Waves, Ship, Cloud, Clock, Save,
-  MapPin, Loader2,
+  MapPin, Loader2, Activity,
 } from 'lucide-react'
 import useStore from '../store/useStore'
+
+// Najdi nejbližší bod tracku k zadanému timestampu (nebo poslední bod)
+function pickTrackPoint(tracks, voyageId, targetTime) {
+  const candidates = tracks.filter((t) => !voyageId || t.voyageId === voyageId)
+  let best = null
+  let bestDiff = Infinity
+  for (const tr of candidates) {
+    for (const p of tr.points ?? []) {
+      const pt = new Date(p.t).getTime()
+      const diff = targetTime ? Math.abs(pt - targetTime) : -pt // když chybí čas → nejnovější
+      if (diff < bestDiff) { bestDiff = diff; best = p }
+    }
+  }
+  return best
+}
 
 // ── Column definitions for the main log table ─────────────────────────────
 const LOG_COLS = [
@@ -71,7 +86,7 @@ function emptyWatch() {
 }
 
 // ── One day — expandable card with full logbook form ─────────────────────
-function DayCard({ day, dayNumber, onUpdate, onDelete }) {
+function DayCard({ day, dayNumber, onUpdate, onDelete, tracks, voyageId }) {
   const [open, setOpen] = useState(false)
   const [d, setD] = useState(day)
   const [gpsRowIdx, setGpsRowIdx] = useState(null)
@@ -116,6 +131,27 @@ function DayCard({ day, dayNumber, onUpdate, onDelete }) {
     } finally {
       setGpsRowIdx(null)
     }
+  }
+
+  // Načíst z tracku podle času řádku + data dne
+  const loadFromTrack = (i) => {
+    const rows = [...(d.rows ?? [])]
+    const row = rows[i] || {}
+    let targetTime = null
+    if (d.date && row.time && /^\d{1,2}:\d{2}$/.test(row.time)) {
+      targetTime = new Date(`${d.date}T${row.time.padStart(5, '0')}:00`).getTime()
+    }
+    const p = pickTrackPoint(tracks, voyageId, targetTime)
+    if (!p) { setGpsErr('Žádný track není k dispozici — spusť tracking v Přehled → Tracking'); return }
+    rows[i] = {
+      ...row,
+      lat: toDMS(p.lat, true),
+      lng: toDMS(p.lng, false),
+      speed: row.speed || (p.speed != null ? p.speed.toFixed(1) : row.speed),
+      gps: row.gps || (p.heading != null && !isNaN(p.heading) ? String(Math.round(p.heading)) : row.gps),
+      time: row.time || new Date(p.t).toTimeString().slice(0, 5),
+    }
+    save({ rows })
   }
 
   const setWatch = (i, k, v) => {
@@ -199,6 +235,14 @@ function DayCard({ day, dayNumber, onUpdate, onDelete }) {
                         {gpsRowIdx === i ? <Loader2 size={10} className="animate-spin" /> : <MapPin size={10} />}
                         GPS
                       </button>
+                      <button
+                        onClick={() => loadFromTrack(i)}
+                        title="Načíst z tracku podle času"
+                        className="flex items-center gap-1 text-[10px] font-semibold text-white bg-purple-500 hover:bg-purple-600 rounded-md px-2 py-1"
+                      >
+                        <Activity size={10} />
+                        Track
+                      </button>
                       <button onClick={() => removeRow(i)} className="text-slate-300 hover:text-red-500 p-1">
                         <Trash2 size={12} />
                       </button>
@@ -257,6 +301,13 @@ function DayCard({ day, dayNumber, onUpdate, onDelete }) {
                           className="text-ocean-500 hover:text-ocean-700 disabled:text-slate-300 p-1"
                         >
                           {gpsRowIdx === i ? <Loader2 size={11} className="animate-spin" /> : <MapPin size={11} />}
+                        </button>
+                        <button
+                          onClick={() => loadFromTrack(i)}
+                          title="Načíst z tracku podle času"
+                          className="text-purple-500 hover:text-purple-700 p-1"
+                        >
+                          <Activity size={11} />
                         </button>
                         <button
                           onClick={() => removeRow(i)}
@@ -408,7 +459,7 @@ function L({ label, value, onChange, type = 'text', placeholder, compact }) {
 
 // ── Main page ─────────────────────────────────────────────────────────────
 export default function LogPage() {
-  const { voyages, activeVoyageId, getVoyageLogDays, addLogDay, updateLogDay, deleteLogDay } = useStore()
+  const { voyages, activeVoyageId, getVoyageLogDays, addLogDay, updateLogDay, deleteLogDay, tracks } = useStore()
   const voyage = voyages.find((v) => v.id === activeVoyageId)
   const days = getVoyageLogDays(activeVoyageId)
 
@@ -471,6 +522,8 @@ export default function LogPage() {
             key={day.id}
             day={day}
             dayNumber={i + 1}
+            tracks={tracks}
+            voyageId={activeVoyageId}
             onUpdate={(patch) => updateLogDay(day.id, patch)}
             onDelete={() => deleteLogDay(day.id)}
           />

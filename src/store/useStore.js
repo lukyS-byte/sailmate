@@ -13,6 +13,8 @@ const useStore = create(
       logbook: [],
       logDays: [],       // Nový klasický lodní deník — stránky po dnech
       regattas: [],
+      tracks: [],        // GPS tracky { id, voyageId, startedAt, endedAt, points, intervalSec, name }
+      activeTrackId: null,
       activeVoyageId: null,
 
       // ── Voyage ──────────────────────────────────────────
@@ -105,6 +107,48 @@ const useStore = create(
       deleteRegatta: (id) =>
         set((s) => ({ regattas: s.regattas.filter((r) => r.id !== id) })),
 
+      // ── Tracks (GPS tracking) ───────────────────────────
+      startTrack: (voyageId, intervalSec = 900) => {
+        const id = uid()
+        const track = {
+          id,
+          voyageId: voyageId ?? null,
+          startedAt: new Date().toISOString(),
+          endedAt: null,
+          intervalSec,
+          points: [],
+          name: `Plavba ${new Date().toLocaleString('cs', { day: 'numeric', month: 'numeric', hour: '2-digit', minute: '2-digit' })}`,
+        }
+        set((s) => ({ tracks: [...s.tracks, track], activeTrackId: id }))
+        return id
+      },
+      addTrackPoint: (id, point) =>
+        set((s) => ({
+          tracks: s.tracks.map((t) =>
+            t.id === id ? { ...t, points: [...t.points, point] } : t
+          ),
+        })),
+      stopTrack: (id) =>
+        set((s) => ({
+          tracks: s.tracks.map((t) =>
+            t.id === id ? { ...t, endedAt: new Date().toISOString() } : t
+          ),
+          activeTrackId: s.activeTrackId === id ? null : s.activeTrackId,
+        })),
+      updateTrack: (id, data) =>
+        set((s) => ({ tracks: s.tracks.map((t) => (t.id === id ? { ...t, ...data } : t)) })),
+      deleteTrack: (id) =>
+        set((s) => ({
+          tracks: s.tracks.filter((t) => t.id !== id),
+          activeTrackId: s.activeTrackId === id ? null : s.activeTrackId,
+        })),
+      getVoyageTracks: (voyageId) =>
+        get().tracks.filter((t) => t.voyageId === voyageId).sort((a, b) => (b.startedAt ?? '').localeCompare(a.startedAt ?? '')),
+      getActiveTrack: () => {
+        const { tracks, activeTrackId } = get()
+        return tracks.find((t) => t.id === activeTrackId) ?? null
+      },
+
       // ── LogDays (klasický lodní deník) ──────────────────
       addLogDay: (data) =>
         set((s) => ({ logDays: [...s.logDays, { id: uid(), rows: [], watches: [], ...data }] })),
@@ -137,13 +181,15 @@ const useStore = create(
           supplies: data.supplies ?? [],
           logbook: data.logbook ?? [],
           logDays: data.logDays ?? [],
+          tracks: data.tracks ?? [],
+          activeTrackId: data.activeTrackId ?? null,
           activeVoyageId: data.activeVoyageId ?? null,
         }),
       clearData: () =>
-        set({ voyages: [], expenses: [], waypoints: [], supplies: [], logbook: [], logDays: [], regattas: [], activeVoyageId: null }),
+        set({ voyages: [], expenses: [], waypoints: [], supplies: [], logbook: [], logDays: [], regattas: [], tracks: [], activeTrackId: null, activeVoyageId: null }),
       getSnapshot: () => {
-        const { voyages, expenses, waypoints, supplies, logbook, logDays, regattas, activeVoyageId } = get()
-        return { voyages, expenses, waypoints, supplies, logbook, logDays, regattas, activeVoyageId }
+        const { voyages, expenses, waypoints, supplies, logbook, logDays, regattas, tracks, activeTrackId, activeVoyageId } = get()
+        return { voyages, expenses, waypoints, supplies, logbook, logDays, regattas, tracks, activeTrackId, activeVoyageId }
       },
     }),
     {
