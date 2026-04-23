@@ -427,30 +427,38 @@ export default function RegataPage() {
               </div>
             )}
 
-            {/* Days — jen dny se závodami */}
-            {(regatta.days ?? []).filter((d) => (d.races ?? []).length > 0).map((day, di) => (
-              <div key={di} className="mb-5">
-                {/* Day header */}
-                <div className="flex items-center gap-2 mb-3">
-                  <div className="flex items-center gap-1.5 bg-navy-800 dark:bg-navy-700 text-white px-3 py-1.5 rounded-full">
-                    <Calendar size={12} />
-                    <span className="text-xs font-semibold">{day.dayName}</span>
+            {/* Days — závodní i volné */}
+            {(regatta.days ?? []).map((day, di) => {
+              const hasRaces = (day.races ?? []).length > 0
+              return (
+                <div key={di} className="mb-5">
+                  {/* Day header */}
+                  <div className="flex items-center gap-2 mb-3">
+                    <div className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-white ${hasRaces ? 'bg-navy-800 dark:bg-navy-700' : 'bg-slate-400 dark:bg-slate-600'}`}>
+                      <Calendar size={12} />
+                      <span className="text-xs font-semibold">{day.dayName}</span>
+                    </div>
+                    <div className="flex-1 h-px bg-slate-200 dark:bg-slate-700" />
+                    <span className="text-xs text-slate-400">
+                      {hasRaces ? `${day.races.length} rozj.` : 'volno'}
+                    </span>
                   </div>
-                  <div className="flex-1 h-px bg-slate-200 dark:bg-slate-700" />
-                  <span className="text-xs text-slate-400">{(day.races ?? []).length} rozj.</span>
-                </div>
 
-                {/* Race cards */}
-                {(day.races ?? []).map((race) => (
-                  <RaceCard
-                    key={race.number}
-                    race={race}
-                    imgs={imgs}
-                    onLightbox={setLightbox}
-                  />
-                ))}
-              </div>
-            ))}
+                  {/* Informační karta pro nezávodní dny */}
+                  {!hasRaces && day.dayNotes && (
+                    <div className="card p-4 flex gap-3 mb-3">
+                      <Info size={16} className="text-ocean-500 shrink-0 mt-0.5" />
+                      <p className="text-sm text-slate-700 dark:text-slate-300 leading-relaxed">{day.dayNotes}</p>
+                    </div>
+                  )}
+
+                  {/* Race cards */}
+                  {(day.races ?? []).map((race) => (
+                    <RaceCard key={race.number} race={race} imgs={imgs} onLightbox={setLightbox} />
+                  ))}
+                </div>
+              )
+            })}
           </div>
         )
       })}

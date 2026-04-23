@@ -17,9 +17,7 @@ export default async function handler(req, res) {
 
   const prompt = `Jsi expert na plachetnicové závody. Analyzuj tento lodní deník / závodní pokyny (Sailing Instructions).
 
-Dokument obsahuje rozjížďky seřazené po dnech. Každá rozjížďka má: název trasy, čas startu, délku v Nm, startovní bod, otočné body (bóje), cílový bod a případné poznámky.
-
-Vrať JSON kde jsou rozjížďky seskupeny PO DNECH. Formát:
+Vrať JSON se VŠEMI dny regaty od příjezdu po odjezd, seskupenými po dnech. Formát:
 {
   "event": "název regaty",
   "location": "místo konání",
@@ -28,7 +26,8 @@ Vrať JSON kde jsou rozjížďky seskupeny PO DNECH. Formát:
   "days": [
     {
       "date": "YYYY-MM-DD",
-      "dayName": "Neděle 10. května",
+      "dayName": "Sobota 9. května",
+      "dayNotes": "program dne bez závodů — příjezd, přebírání lodí s časy, kotvení, večeře atd. Null pro závodní dny.",
       "races": [
         {
           "number": 1,
@@ -37,9 +36,9 @@ Vrať JSON kde jsou rozjížďky seskupeny PO DNECH. Formát:
           "distanceNm": číslo nebo null,
           "startMark": "startovní bod",
           "finishMark": "cílový bod",
-          "marks": ["1. otočný bod: název, LB/PB", "2. otočný bod: název, LB/PB"],
-          "notes": "důležité: vítr, alternativní trasa, kotvení, bezpečnost",
-          "pageIndex": číslo 0-based stránky kde je diagram/schéma trasy
+          "marks": ["1. otočný bod: název LB/PB", "2. otočný bod: název LB/PB"],
+          "notes": "důležité poznámky (vítr, kotvení, bezpečnost)",
+          "pageIndex": číslo 0-based stránky s mapou/schématem trasy
         }
       ]
     }
@@ -47,11 +46,12 @@ Vrať JSON kde jsou rozjížďky seskupeny PO DNECH. Formát:
 }
 
 Pravidla:
-- Zahrň KAŽDOU rozjížďku z dokumentu, nezastavuj se dříve
-- Do days[] zahrň POUZE dny kdy se skutečně závodí (kdy je alespoň jedna rozjížďka)
-- Dny bez závodů (příjezd, volno, předání lodí, závěrečná večeře) NEZAHRNUJ
-- Pokud jsou na jedné stránce dvě varianty trasy (různé třídy lodí), zahrň tu detailnější / delší
-- pageIndex = index stránky PDF (0 = první strana) kde je MAPA/SCHÉMA trasy pro danou rozjížďku (ne strana s textem pravidel)
+- Zahrň KAŽDÝ den regaty — závodní i nezávodní (příjezd, volno, závěrečná večeře)
+- Nezávodní dny: races = [], dayNotes = popis programu s časy
+- Závodní dny: races = seznam závodů, dayNotes = null
+- Zahrň KAŽDOU rozjížďku, nezastavuj se dříve
+- Pokud jsou dvě varianty trasy (různé třídy), zahrni detailnější/delší
+- pageIndex = index stránky PDF (0 = první strana) kde je MAPA trasy
 - Vrať POUZE JSON, žádný jiný text
 
 ${text ? `Text z PDF:\n${text.slice(0, 25000)}` : ''}`
