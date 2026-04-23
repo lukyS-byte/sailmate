@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Anchor, Users, Wallet, Map, Wind, Calendar, ChevronRight, Plus, Sailboat, Users2 } from 'lucide-react'
+import { Anchor, Users, Wallet, Map, Wind, Calendar, ChevronRight, Plus, Sailboat, Users2, Trophy, Clock, Ruler, Navigation, Flag } from 'lucide-react'
 import useStore from '../store/useStore'
 import { splitExpenses, formatCurrency } from '../utils/calc'
 import Modal from '../components/Modal'
@@ -236,13 +236,23 @@ function NewVoyageModal({ onClose }) {
 
 export default function Dashboard() {
   const [showNew, setShowNew] = useState(false)
-  const { voyages, expenses, activeVoyageId, setActiveVoyage } = useStore()
+  const navigate = useNavigate()
+  const { voyages, expenses, regattas, activeVoyageId, setActiveVoyage } = useStore()
   const active = voyages.find((v) => v.id === activeVoyageId)
   const voyageExpenses = expenses.filter((e) => e.voyageId === activeVoyageId)
   const totalExpenses = voyageExpenses.reduce((s, e) => s + e.amount, 0)
   const { transactions } = active?.crew?.length
     ? splitExpenses(voyageExpenses, active.crew)
     : { transactions: [] }
+
+  // ── Regata dnes ───────────────────────────────────────────────────────────
+  const todayISO = new Date().toISOString().slice(0, 10)  // YYYY-MM-DD
+  let todayRegatta = null
+  let todayDay = null
+  for (const reg of regattas ?? []) {
+    const match = (reg.days ?? []).find((d) => d.date === todayISO)
+    if (match) { todayRegatta = reg; todayDay = match; break }
+  }
 
   return (
     <div className="p-4 space-y-4">
@@ -258,6 +268,65 @@ export default function Dashboard() {
           <Plus size={16} /> Nová výprava
         </button>
       </div>
+
+      {/* Dnešní regata */}
+      {todayRegatta && todayDay && (
+        <button
+          onClick={() => navigate('/regata')}
+          className="w-full text-left rounded-2xl overflow-hidden shadow-md bg-gradient-to-br from-ocean-500 to-ocean-600 text-white"
+        >
+          <div className="p-4">
+            <div className="flex items-center justify-between mb-1">
+              <div className="flex items-center gap-2">
+                <Trophy size={16} />
+                <span className="text-[11px] font-semibold uppercase tracking-wide text-white/80">Dnes — {todayDay.dayName}</span>
+              </div>
+              <ChevronRight size={18} className="text-white/70" />
+            </div>
+            <p className="text-lg font-bold leading-tight mb-0.5">{todayRegatta.event || 'Regata'}</p>
+            {todayRegatta.location && (
+              <p className="text-xs text-white/75">{todayRegatta.location}</p>
+            )}
+
+            {(todayDay.races ?? []).length > 0 ? (
+              <div className="mt-3 space-y-2">
+                {todayDay.races.map((race) => (
+                  <div key={race.number} className="rounded-lg bg-white/15 backdrop-blur px-3 py-2">
+                    <div className="flex items-center gap-2">
+                      <span className="w-6 h-6 rounded-full bg-white text-ocean-600 text-xs font-bold flex items-center justify-center shrink-0">
+                        {race.number}
+                      </span>
+                      <span className="text-sm font-semibold flex-1 truncate">{race.name || `Rozjížďka ${race.number}`}</span>
+                    </div>
+                    <div className="flex flex-wrap gap-x-3 gap-y-0.5 mt-1.5 pl-8">
+                      {race.startTime && (
+                        <span className="text-[11px] text-white/90 flex items-center gap-1">
+                          <Clock size={10} />{race.startTime}
+                        </span>
+                      )}
+                      {race.distanceNm != null && (
+                        <span className="text-[11px] text-white/90 flex items-center gap-1">
+                          <Ruler size={10} />{race.distanceNm} nm
+                        </span>
+                      )}
+                      {race.startMark && (
+                        <span className="text-[11px] text-white/90 flex items-center gap-1 truncate">
+                          <Flag size={10} />{race.startMark}
+                          {race.finishMark && ` → ${race.finishMark}`}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : todayDay.dayNotes ? (
+              <div className="mt-3 rounded-lg bg-white/15 backdrop-blur px-3 py-2.5">
+                <p className="text-xs leading-relaxed text-white/95">{todayDay.dayNotes}</p>
+              </div>
+            ) : null}
+          </div>
+        </button>
+      )}
 
       {/* Active voyage */}
       {active ? (
