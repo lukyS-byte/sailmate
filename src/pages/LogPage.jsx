@@ -2,6 +2,7 @@ import { useState } from 'react'
 import {
   Plus, Trash2, BookOpen, ChevronDown, ChevronUp, Calendar, Anchor,
   Navigation, Wind, Eye, Droplets, Gauge, Waves, Ship, Cloud, Clock, Save,
+  MapPin, Loader2,
 } from 'lucide-react'
 import useStore from '../store/useStore'
 
@@ -26,6 +27,45 @@ function emptyRow() {
   return Object.fromEntries(LOG_COLS.map((c) => [c.key, '']))
 }
 
+// Decimal stupně → námořnický formát "43°10.52'N"
+function toDMS(deg, isLat) {
+  const hemi = deg >= 0 ? (isLat ? 'N' : 'E') : (isLat ? 'S' : 'W')
+  const abs = Math.abs(deg)
+  const d = Math.floor(abs)
+  const m = (abs - d) * 60
+  return `${d}°${m.toFixed(2)}'${hemi}`
+}
+
+// Hook pro získání GPS pozice s explicitním povolením uživatele
+function useGPS() {
+  const [state, setState] = useState({ loading: false, error: '' })
+
+  const fetchPosition = () => new Promise((resolve, reject) => {
+    if (!navigator.geolocation) {
+      reject(new Error('Prohlížeč nepodporuje GPS'))
+      return
+    }
+    setState({ loading: true, error: '' })
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        setState({ loading: false, error: '' })
+        resolve(pos.coords)
+      },
+      (err) => {
+        const msg = err.code === 1 ? 'GPS odmítnuto — povol v Nastavení'
+          : err.code === 2 ? 'Polohu se nepodařilo zjistit'
+          : err.code === 3 ? 'GPS timeout — zkus znovu venku'
+          : err.message
+        setState({ loading: false, error: msg })
+        reject(new Error(msg))
+      },
+      { enableHighAccuracy: true, timeout: 15000, maximumAge: 5000 }
+    )
+  })
+
+  return { fetchPosition, ...state }
+}
+
 function emptyWatch() {
   return { time: '', name: '' }
 }
@@ -34,6 +74,9 @@ function emptyWatch() {
 function DayCard({ day, dayNumber, onUpdate, onDelete }) {
   const [open, setOpen] = useState(false)
   const [d, setD] = useState(day)
+  const [gpsRowIdx, setGpsRowIdx] = useState(null)
+  const [gpsErr, setGpsErr] = useState('')
+  const gps = useGPS()
 
   const save = (patch) => {
     const next = { ...d, ...patch }
@@ -49,6 +92,31 @@ function DayCard({ day, dayNumber, onUpdate, onDelete }) {
   }
   const addRow = () => save({ rows: [...(d.rows ?? []), emptyRow()] })
   const removeRow = (i) => save({ rows: d.rows.filter((_, j) => j !== i) })
+
+  // Jeden stisk = doplní aktuální GPS (lat, lng) + čas do řádku i
+  const fillGPS = async (i) => {
+    setGpsRowIdx(i); setGpsErr('')
+    try {
+      const coords = await gps.fetchPosition()
+      const rows = [...(d.rows ?? [])]
+      const now = new Date()
+      const hh = String(now.getHours()).padStart(2, '0')
+      const mm = String(now.getMinutes()).padStart(2, '0')
+      rows[i] = {
+        ...rows[i],
+        lat: toDMS(coords.latitude, true),
+        lng: toDMS(coords.longitude, false),
+        time: rows[i].time || `${hh}:${mm}`,
+        speed: rows[i].speed || (coords.speed != null ? (coords.speed * 1.94384).toFixed(1) : rows[i].speed),
+        gps: rows[i].gps || (coords.heading != null && !isNaN(coords.heading) ? String(Math.round(coords.heading)) : rows[i].gps),
+      }
+      save({ rows })
+    } catch (e) {
+      setGpsErr(e.message)
+    } finally {
+      setGpsRowIdx(null)
+    }
+  }
 
   const setWatch = (i, k, v) => {
     const watches = [...(d.watches ?? [])]
@@ -109,15 +177,32 @@ function DayCard({ day, dayNumber, onUpdate, onDelete }) {
           <section>
             <p className="section-label"><Navigation size={12} /> Záznamy plavby</p>
 
+            {gpsErr && (
+              <div className="mb-2 rounded-lg bg-red-50 border border-red-200 text-red-700 px-3 py-1.5 text-xs flex items-center justify-between">
+                <span>{gpsErr}</span>
+                <button onClick={() => setGpsErr('')} className="ml-2">✕</button>
+              </div>
+            )}
+
             {/* Mobilní pohled — karty */}
             <div className="sm:hidden space-y-2">
               {(d.rows ?? []).map((row, i) => (
                 <div key={i} className="rounded-xl border border-slate-200 dark:border-slate-700 p-2.5 bg-slate-50/60 dark:bg-slate-800/40">
                   <div className="flex items-center justify-between mb-2">
                     <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wide">Záznam #{i + 1}</span>
-                    <button onClick={() => removeRow(i)} className="text-slate-300 hover:text-red-500 p-1">
-                      <Trash2 size={12} />
-                    </button>
+                    <div className="flex items-center gap-1">
+                      <button
+                        onClick={() => fillGPS(i)}
+                        disabled={gpsRowIdx === i}
+                        className="flex items-center gap-1 text-[10px] font-semibold text-white bg-ocean-500 hover:bg-ocean-600 disabled:bg-slate-300 rounded-md px-2 py-1"
+                      >
+                        {gpsRowIdx === i ? <Loader2 size={10} className="animate-spin" /> : <MapPin size={10} />}
+                        GPS
+                      </button>
+                      <button onClick={() => removeRow(i)} className="text-slate-300 hover:text-red-500 p-1">
+                        <Trash2 size={12} />
+                      </button>
+                    </div>
                   </div>
                   <div className="grid grid-cols-2 gap-1.5">
                     {LOG_COLS.map((c) => (
@@ -164,7 +249,15 @@ function DayCard({ day, dayNumber, onUpdate, onDelete }) {
                           />
                         </td>
                       ))}
-                      <td className="border-b border-slate-100 dark:border-slate-800 text-center">
+                      <td className="border-b border-slate-100 dark:border-slate-800 text-center whitespace-nowrap">
+                        <button
+                          onClick={() => fillGPS(i)}
+                          disabled={gpsRowIdx === i}
+                          title="Doplnit aktuální GPS polohu"
+                          className="text-ocean-500 hover:text-ocean-700 disabled:text-slate-300 p-1"
+                        >
+                          {gpsRowIdx === i ? <Loader2 size={11} className="animate-spin" /> : <MapPin size={11} />}
+                        </button>
                         <button
                           onClick={() => removeRow(i)}
                           className="text-slate-300 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity p-1"
