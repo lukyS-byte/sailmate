@@ -65,6 +65,7 @@ DŮLEŽITÁ PRAVIDLA:
 - Pokud existují dvě varianty trasy (třídy), vyber delší/detailnější
 - pageIndex = 0-based index strany s MAPOU
 - practicalInfo: minimálně 3-5 témat pokud je v textu dostatek informací. Zachovej ČÍSELNÉ detaily (telefony, částky, časy, spoluúčasti).
+- VYNECHEJ ale témata která dávají smysl jen s obrázkem — typicky "Startovací čísla a vlajky", "Rozlišovací čísla lodí", seznamy vlajek/barev bez kontextu. Bez obrázku jsou to jen opakující se barvy a uživateli to nepomůže.
 - Nezkracuj — radši víc rozjížděk/témat než méně
 - Vrať POUZE validní JSON
 

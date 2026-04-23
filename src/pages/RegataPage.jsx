@@ -349,7 +349,7 @@ export default function RegataPage() {
   const fileInputRef = useRef(null)
 
   const voyageRegattas = regattas.filter((r) => r.voyageId === activeVoyageId)
-  const BUILD_VERSION = 'v7'
+  const BUILD_VERSION = 'v8'
 
   const handleFile = async (file) => {
     if (!file || file.type !== 'application/pdf') { setError('Vyberte PDF soubor.'); return }
@@ -474,8 +474,12 @@ export default function RegataPage() {
               </div>
             )}
 
-            {/* Praktické informace */}
-            {(regatta.practicalInfo ?? []).length > 0 && (
+            {/* Praktické informace — vyfiltruj vizuální témata (vlajky, čísla) */}
+            {(() => {
+              const filtered = (regatta.practicalInfo ?? []).filter(
+                (item) => !/vlajk|rozlišovac.*čísl|startovac.*čísl/i.test(item.title ?? '')
+              )
+              return filtered.length > 0 && (
               <div className="mb-5">
                 <div className="flex items-center gap-2 mb-3">
                   <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-ocean-500 text-white">
@@ -484,11 +488,12 @@ export default function RegataPage() {
                   </div>
                   <div className="flex-1 h-px bg-slate-200 dark:bg-slate-700" />
                 </div>
-                {regatta.practicalInfo.map((item, i) => (
+                {filtered.map((item, i) => (
                   <PracticalInfoCard key={i} item={item} />
                 ))}
               </div>
-            )}
+            )
+            })()}
 
             {/* Days — závodní i volné */}
             {(regatta.days ?? []).map((day, di) => {
