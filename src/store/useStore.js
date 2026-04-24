@@ -293,19 +293,32 @@ const useStore = create(
       mergeSharedVoyage: (snapshot) => {
         if (!snapshot?.voyage) return
         const vId = snapshot.voyage.id
-        set((s) => ({
-          voyages: [snapshot.voyage, ...s.voyages.filter((v) => v.id !== vId)],
-          expenses: [...s.expenses.filter((e) => e.voyageId !== vId), ...(snapshot.expenses ?? [])],
-          waypoints: [...s.waypoints.filter((w) => w.voyageId !== vId), ...(snapshot.waypoints ?? [])],
-          supplies: [...s.supplies.filter((x) => x.voyageId !== vId), ...(snapshot.supplies ?? [])],
-          logDays: [...s.logDays.filter((d) => d.voyageId !== vId), ...(snapshot.logDays ?? [])],
-          tracks: [...s.tracks.filter((t) => t.voyageId !== vId), ...(snapshot.tracks ?? [])],
-          regattas: [...s.regattas.filter((r) => r.voyageId !== vId), ...(snapshot.regattas ?? [])],
-          activeVoyageId: s.activeVoyageId ?? vId,
-        }))
+        set((s) => {
+          // Zachovej lokální pageData u regat (stripped ze snapshotu kvůli velikosti)
+          const localPageDataById = Object.fromEntries(
+            s.regattas.filter((r) => r.pageData).map((r) => [r.id, r.pageData])
+          )
+          const incomingRegattas = (snapshot.regattas ?? []).map((r) => ({
+            ...r,
+            pageData: localPageDataById[r.id] ?? r.pageData,
+          }))
+          return {
+            voyages: [snapshot.voyage, ...s.voyages.filter((v) => v.id !== vId)],
+            expenses: [...s.expenses.filter((e) => e.voyageId !== vId), ...(snapshot.expenses ?? [])],
+            waypoints: [...s.waypoints.filter((w) => w.voyageId !== vId), ...(snapshot.waypoints ?? [])],
+            supplies: [...s.supplies.filter((x) => x.voyageId !== vId), ...(snapshot.supplies ?? [])],
+            logDays: [...s.logDays.filter((d) => d.voyageId !== vId), ...(snapshot.logDays ?? [])],
+            tracks: [...s.tracks.filter((t) => t.voyageId !== vId), ...(snapshot.tracks ?? [])],
+            regattas: [...s.regattas.filter((r) => r.voyageId !== vId), ...incomingRegattas],
+            activeVoyageId: s.activeVoyageId ?? vId,
+          }
+        })
       },
 
-      // Vytáhni data jedné výpravy jako snapshot pro publikování do voyage_invites
+      // Vytáhni data jedné výpravy jako snapshot pro publikování do voyage_invites.
+      // Regattám stripujeme pageData (base64 PDF obrázky) — jsou obří (MB) a
+      // způsobují statement timeout v Supabase upsertu. Crew uvidí metadata,
+      // ne obrázky schémat.
       getVoyageSnapshot: (voyageId) => {
         const s = get()
         const voyage = s.voyages.find((v) => v.id === voyageId)
@@ -317,7 +330,9 @@ const useStore = create(
           supplies: s.supplies.filter((x) => x.voyageId === voyageId),
           logDays: s.logDays.filter((d) => d.voyageId === voyageId),
           tracks: s.tracks.filter((t) => t.voyageId === voyageId),
-          regattas: s.regattas.filter((r) => r.voyageId === voyageId),
+          regattas: s.regattas
+            .filter((r) => r.voyageId === voyageId)
+            .map(({ pageData, ...r }) => r),
         }
       },
 
