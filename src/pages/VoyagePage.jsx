@@ -3,6 +3,7 @@ import { Plus, Trash2, UserPlus, Anchor, Check, Share2, Copy, Pencil, Users2 } f
 import { useNavigate } from 'react-router-dom'
 import useStore from '../store/useStore'
 import Modal from '../components/Modal'
+import { RoleBadge, RolePickerModal } from '../components/RoleComponents'
 import { supabase } from '../lib/supabase'
 
 const HR_PORTS = [
@@ -166,7 +167,8 @@ export default function VoyagePage() {
   const [shared, setShared] = useState(false)
   const [codeCopied, setCodeCopied] = useState(false)
   const navigate = useNavigate()
-  const { voyages, activeVoyageId, updateVoyage, removeCrewMember, deleteVoyage, addExpense, expenses, crewMode } = useStore()
+  const { voyages, activeVoyageId, updateVoyage, removeCrewMember, deleteVoyage, addExpense, expenses, crewMode, crewMemberId, assignRole, removeRole, approveRoleRequest, rejectRoleRequest } = useStore()
+  const [assignFor, setAssignFor] = useState(null)  // memberId když kapitán přiřazuje
 
   const charterAlreadyAdded = expenses.some(
     (e) => e.voyageId === activeVoyageId && e.category === 'charter'
@@ -287,22 +289,104 @@ export default function VoyagePage() {
               <Plus size={16} className="mr-2" /> Přidej členy posádky
             </div>
           )}
-          {(voyage.crew ?? []).map((member) => (
-            <div key={member.id} className="card flex items-center gap-3 py-3">
-              <div className="w-9 h-9 rounded-full bg-gradient-to-br from-ocean-400 to-navy-600 flex items-center justify-center text-white font-bold text-sm flex-shrink-0">
-                {member.name[0].toUpperCase()}
+          {(voyage.crew ?? []).map((member) => {
+            const roles = member.roles ?? []
+            const isMe = crewMode && member.id === crewMemberId
+            return (
+              <div key={member.id} className="card py-3">
+                <div className="flex items-center gap-3">
+                  <div className="w-9 h-9 rounded-full bg-gradient-to-br from-ocean-400 to-navy-600 flex items-center justify-center text-white font-bold text-sm flex-shrink-0">
+                    {member.name[0].toUpperCase()}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="font-medium text-sm truncate">
+                      {member.name} {isMe && <span className="text-[10px] text-ocean-500 font-semibold">(ty)</span>}
+                    </p>
+                    <p className="text-xs text-slate-400">{member.isSkipper ? '⚓ Kapitán' : 'Posádka'}</p>
+                  </div>
+                  {!crewMode && (
+                    <>
+                      <button
+                        onClick={() => setAssignFor(member.id)}
+                        className="p-2 text-slate-400 hover:text-ocean-500 transition-colors"
+                        title="Přidat funkci"
+                      >
+                        <Plus size={15} />
+                      </button>
+                      <button onClick={() => removeCrewMember(voyage.id, member.id)} className="p-2 text-slate-300 hover:text-red-400 transition-colors">
+                        <Trash2 size={15} />
+                      </button>
+                    </>
+                  )}
+                </div>
+                {roles.length > 0 && (
+                  <div className="flex flex-wrap gap-1.5 mt-2 pl-12">
+                    {roles.map((r, i) => {
+                      const rid = typeof r === 'string' ? r : r.id
+                      return (
+                        <RoleBadge
+                          key={rid + i}
+                          role={r}
+                          compact
+                          onRemove={!crewMode ? () => removeRole(voyage.id, member.id, rid) : undefined}
+                        />
+                      )
+                    })}
+                  </div>
+                )}
               </div>
-              <div className="flex-1 min-w-0">
-                <p className="font-medium text-sm truncate">{member.name}</p>
-                <p className="text-xs text-slate-400">{member.isSkipper ? '⚓ Kapitán' : 'Posádka'}</p>
-              </div>
-              <button onClick={() => removeCrewMember(voyage.id, member.id)} className="p-2 text-slate-300 hover:text-red-400 transition-colors">
-                <Trash2 size={15} />
-              </button>
-            </div>
-          ))}
+            )
+          })}
         </div>
       </div>
+
+      {/* Role requests — jen kapitán */}
+      {!crewMode && (voyage.roleRequests ?? []).length > 0 && (
+        <div className="card space-y-2 border-amber-200 bg-amber-50">
+          <p className="text-sm font-semibold text-amber-800">Žádosti o funkci ({voyage.roleRequests.length})</p>
+          <div className="space-y-2">
+            {voyage.roleRequests.map((req) => {
+              const m = (voyage.crew ?? []).find((c) => c.id === req.memberId)
+              return (
+                <div key={req.id} className="flex items-center gap-2 bg-white rounded-xl p-2">
+                  <div className="flex-1 min-w-0">
+                    <p className="text-xs text-slate-500">{m?.name ?? 'Neznámý'} žádá</p>
+                    <div className="mt-1"><RoleBadge role={req.role} compact /></div>
+                  </div>
+                  <button
+                    onClick={() => approveRoleRequest(voyage.id, req.id)}
+                    className="p-2 rounded-lg bg-emerald-100 text-emerald-700 hover:bg-emerald-200"
+                    title="Schválit"
+                  >
+                    <Check size={14} />
+                  </button>
+                  <button
+                    onClick={() => rejectRoleRequest(voyage.id, req.id)}
+                    className="p-2 rounded-lg bg-red-100 text-red-600 hover:bg-red-200"
+                    title="Zamítnout"
+                  >
+                    <Trash2 size={14} />
+                  </button>
+                </div>
+              )
+            })}
+          </div>
+        </div>
+      )}
+
+      {assignFor && (() => {
+        const m = (voyage.crew ?? []).find((c) => c.id === assignFor)
+        if (!m) return null
+        return (
+          <RolePickerModal
+            title={`Přidělit funkci: ${m.name}`}
+            existingRoles={m.roles ?? []}
+            onPick={(role) => assignRole(voyage.id, m.id, role)}
+            onClose={() => setAssignFor(null)}
+            actionLabel="Přidělit"
+          />
+        )
+      })()}
 
       {/* Charter split hint */}
       {voyage.charterCost > 0 && voyage.crew?.length > 0 && (

@@ -16,6 +16,7 @@ import SharePage from './pages/SharePage'
 import JoinPage from './pages/JoinPage'
 import PrivacyPage from './pages/PrivacyPage'
 import AccountPage from './pages/AccountPage'
+import { CrewIdentityModal } from './components/RoleComponents'
 import { supabase } from './lib/supabase'
 import { publishSharedVoyage, loadSharedVoyage, subscribeSharedVoyage } from './lib/sharedSync'
 import useStore from './store/useStore'
@@ -29,6 +30,9 @@ export default function App() {
   const subscriptions = useRef({})
 
   const crewMode = useStore((s) => s.crewMode)
+  const crewMemberId = useStore((s) => s.crewMemberId)
+  const voyages = useStore((s) => s.voyages)
+  const crewCode = useStore((s) => s.crewCode)
 
   // ── Crew mode boot: načti snapshot, enter mode (subscribe přebírá hlavní efekt) ──
   useEffect(() => {
@@ -179,8 +183,15 @@ export default function App() {
     if (!user) return <AuthPage />
   }
 
+  // Crew bez identity — najdi výpravu podle kódu a zobraz modal "Kdo jsi?"
+  const crewVoyage = crewMode ? voyages.find((v) => v.inviteCode === crewCode) : null
+  const needsIdentity = crewMode && !crewMemberId && crewVoyage
+
   return (
     <Layout user={user}>
+      {needsIdentity && (
+        <CrewIdentityModal voyage={crewVoyage} onSelected={() => {}} />
+      )}
       <Routes>
         <Route path="/" element={<Dashboard />} />
         <Route path="/voyage" element={<VoyagePage />} />

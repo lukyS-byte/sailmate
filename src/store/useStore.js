@@ -20,6 +20,7 @@ const useStore = create(
       // ── Crew mode (posádka přihlášená přes kód) ─────────
       crewMode: false,
       crewCode: null,
+      crewMemberId: null,  // který člen posádky jsem (když jsem crew)
 
       // ── Voyage ──────────────────────────────────────────
       addVoyage: (data) => {
@@ -65,6 +66,97 @@ const useStore = create(
               : v
           ),
         })),
+
+      // ── Role / funkce ────────────────────────────────────
+      // Kapitán přidělí nebo odebere roli. Role je buď string id
+      // ("captain", "cook"…) nebo objekt { id: "custom:…", label }.
+      assignRole: (voyageId, memberId, role) =>
+        set((s) => ({
+          voyages: s.voyages.map((v) => {
+            if (v.id !== voyageId) return v
+            return {
+              ...v,
+              crew: (v.crew ?? []).map((c) => {
+                if (c.id !== memberId) return c
+                const roles = c.roles ?? []
+                const roleId = typeof role === 'string' ? role : role.id
+                if (roles.some((r) => (typeof r === 'string' ? r : r.id) === roleId)) return c
+                return { ...c, roles: [...roles, role] }
+              }),
+            }
+          }),
+        })),
+      removeRole: (voyageId, memberId, roleId) =>
+        set((s) => ({
+          voyages: s.voyages.map((v) => {
+            if (v.id !== voyageId) return v
+            return {
+              ...v,
+              crew: (v.crew ?? []).map((c) =>
+                c.id === memberId
+                  ? { ...c, roles: (c.roles ?? []).filter((r) => (typeof r === 'string' ? r : r.id) !== roleId) }
+                  : c
+              ),
+            }
+          }),
+        })),
+
+      // Posádka žádá o roli. Vytvoří záznam ve voyage.roleRequests.
+      requestRole: (voyageId, memberId, role) => {
+        const reqId = uid()
+        set((s) => ({
+          voyages: s.voyages.map((v) =>
+            v.id === voyageId
+              ? {
+                  ...v,
+                  roleRequests: [
+                    ...(v.roleRequests ?? []),
+                    { id: reqId, memberId, role, createdAt: new Date().toISOString() },
+                  ],
+                }
+              : v
+          ),
+        }))
+        return reqId
+      },
+      // Kapitán schválí → role se přidá členovi, žádost se smaže.
+      approveRoleRequest: (voyageId, requestId) =>
+        set((s) => ({
+          voyages: s.voyages.map((v) => {
+            if (v.id !== voyageId) return v
+            const req = (v.roleRequests ?? []).find((r) => r.id === requestId)
+            if (!req) return v
+            const roleId = typeof req.role === 'string' ? req.role : req.role.id
+            return {
+              ...v,
+              crew: (v.crew ?? []).map((c) => {
+                if (c.id !== req.memberId) return c
+                const roles = c.roles ?? []
+                if (roles.some((r) => (typeof r === 'string' ? r : r.id) === roleId)) return c
+                return { ...c, roles: [...roles, req.role] }
+              }),
+              roleRequests: (v.roleRequests ?? []).filter((r) => r.id !== requestId),
+            }
+          }),
+        })),
+      rejectRoleRequest: (voyageId, requestId) =>
+        set((s) => ({
+          voyages: s.voyages.map((v) =>
+            v.id === voyageId
+              ? { ...v, roleRequests: (v.roleRequests ?? []).filter((r) => r.id !== requestId) }
+              : v
+          ),
+        })),
+
+      // ── Crew identity ───────────────────────────────────
+      setCrewMemberId: (memberId) => {
+        localStorage.setItem('sailmate-crew-member-id', memberId)
+        set({ crewMemberId: memberId })
+      },
+      clearCrewMemberId: () => {
+        localStorage.removeItem('sailmate-crew-member-id')
+        set({ crewMemberId: null })
+      },
 
       // ── Expenses ────────────────────────────────────────
       addExpense: (data) =>
@@ -183,12 +275,14 @@ const useStore = create(
       // ── Crew mode ───────────────────────────────────────
       enterCrewMode: (code) => {
         localStorage.setItem('sailmate-crew-code', code)
-        set({ crewMode: true, crewCode: code })
+        const memberId = localStorage.getItem('sailmate-crew-member-id')
+        set({ crewMode: true, crewCode: code, crewMemberId: memberId ?? null })
       },
       exitCrewMode: () => {
         localStorage.removeItem('sailmate-crew-code')
+        localStorage.removeItem('sailmate-crew-member-id')
         set({
-          crewMode: false, crewCode: null,
+          crewMode: false, crewCode: null, crewMemberId: null,
           voyages: [], expenses: [], waypoints: [], supplies: [], logbook: [],
           logDays: [], regattas: [], tracks: [], activeTrackId: null, activeVoyageId: null,
         })

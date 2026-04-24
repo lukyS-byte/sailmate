@@ -4,6 +4,7 @@ import { Anchor, Users, Wallet, Map, Wind, Calendar, ChevronRight, Plus, Sailboa
 import useStore from '../store/useStore'
 import { splitExpenses, formatCurrency } from '../utils/calc'
 import Modal from '../components/Modal'
+import { RoleBadge, RolePickerModal } from '../components/RoleComponents'
 
 // Known charter boats: model → LOA in meters
 const BOATS = [
@@ -237,8 +238,14 @@ function NewVoyageModal({ onClose }) {
 export default function Dashboard() {
   const [showNew, setShowNew] = useState(false)
   const navigate = useNavigate()
-  const { voyages, expenses, regattas, activeVoyageId, setActiveVoyage, activeTrackId, crewMode } = useStore()
+  const { voyages, expenses, regattas, activeVoyageId, setActiveVoyage, activeTrackId, crewMode, crewMemberId, requestRole } = useStore()
+  const [showRoleRequest, setShowRoleRequest] = useState(false)
   const active = voyages.find((v) => v.id === activeVoyageId)
+  const me = crewMode && active ? (active.crew ?? []).find((c) => c.id === crewMemberId) : null
+  const myRoles = me?.roles ?? []
+  const myPending = crewMode && active
+    ? (active.roleRequests ?? []).filter((r) => r.memberId === crewMemberId)
+    : []
   const voyageExpenses = expenses.filter((e) => e.voyageId === activeVoyageId)
   const totalExpenses = voyageExpenses.reduce((s, e) => s + e.amount, 0)
   const { transactions } = active?.crew?.length
@@ -280,6 +287,52 @@ export default function Dashboard() {
             <p className="text-[11px] text-white/80">Vše se ukládá a synchronizuje s kapitánem v reálném čase</p>
           </div>
         </div>
+      )}
+
+      {/* Moje funkce (pro crew) */}
+      {crewMode && me && (
+        <div className="card">
+          <div className="flex items-center justify-between mb-2">
+            <p className="text-sm font-semibold">Moje funkce</p>
+            <span className="text-[11px] text-slate-400">{me.name}</span>
+          </div>
+          {myRoles.length > 0 ? (
+            <div className="flex flex-wrap gap-1.5 mb-3">
+              {myRoles.map((r, i) => {
+                const rid = typeof r === 'string' ? r : r.id
+                return <RoleBadge key={rid + i} role={r} />
+              })}
+            </div>
+          ) : (
+            <p className="text-xs text-slate-400 italic mb-3">Zatím žádná funkce — požádej kapitána.</p>
+          )}
+          {myPending.length > 0 && (
+            <div className="mb-3 rounded-xl bg-amber-50 border border-amber-200 px-3 py-2">
+              <p className="text-[11px] font-semibold text-amber-700 mb-1">Čeká na schválení</p>
+              <div className="flex flex-wrap gap-1.5">
+                {myPending.map((r) => (
+                  <RoleBadge key={r.id} role={r.role} compact />
+                ))}
+              </div>
+            </div>
+          )}
+          <button
+            onClick={() => setShowRoleRequest(true)}
+            className="btn-ocean w-full flex items-center justify-center gap-1.5 text-sm"
+          >
+            <Plus size={14} /> Požádat o funkci
+          </button>
+        </div>
+      )}
+
+      {showRoleRequest && me && active && (
+        <RolePickerModal
+          title="Požádat o funkci"
+          existingRoles={[...myRoles, ...myPending.map((r) => r.role)]}
+          onPick={(role) => requestRole(active.id, me.id, role)}
+          onClose={() => setShowRoleRequest(false)}
+          actionLabel="Požádat"
+        />
       )}
 
       {/* Live tracking banner */}
