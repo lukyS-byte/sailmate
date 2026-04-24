@@ -177,6 +177,33 @@ ${text ? `Text z PDF:\n${text.slice(0, 6000)}` : ''}`
           }
         })
       })
+      // Ensure Supabase Storage bucket exists (idempotent)
+      server.middlewares.use('/api/ensure-bucket', async (req, res) => {
+        if (req.method !== 'POST') { res.statusCode = 405; res.end(); return }
+        const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY
+        if (!serviceKey) { res.statusCode = 503; res.end(JSON.stringify({ error: 'SUPABASE_SERVICE_ROLE_KEY není nastaven' })); return }
+        const supabaseUrl = process.env.SUPABASE_URL || 'https://kgteeyrfzwdptdvhjtbs.supabase.co'
+        const bucketId = 'regatta-pages'
+        try {
+          const head = await fetch(`${supabaseUrl}/storage/v1/bucket/${bucketId}`, {
+            headers: { apikey: serviceKey, Authorization: `Bearer ${serviceKey}` },
+          })
+          if (head.ok) { res.setHeader('Content-Type', 'application/json'); res.end(JSON.stringify({ ok: true, created: false })); return }
+          const create = await fetch(`${supabaseUrl}/storage/v1/bucket`, {
+            method: 'POST',
+            headers: { apikey: serviceKey, Authorization: `Bearer ${serviceKey}`, 'Content-Type': 'application/json' },
+            body: JSON.stringify({ id: bucketId, name: bucketId, public: true, file_size_limit: 10 * 1024 * 1024, allowed_mime_types: ['image/jpeg', 'image/png', 'image/webp'] }),
+          })
+          if (!create.ok) {
+            const err = await create.json().catch(() => ({}))
+            if (err?.error === 'Duplicate' || /already exists/i.test(err?.message ?? '')) {
+              res.setHeader('Content-Type', 'application/json'); res.end(JSON.stringify({ ok: true, created: false })); return
+            }
+            res.statusCode = 500; res.end(JSON.stringify({ error: err.message ?? `Supabase ${create.status}` })); return
+          }
+          res.setHeader('Content-Type', 'application/json'); res.end(JSON.stringify({ ok: true, created: true }))
+        } catch (e) { res.statusCode = 500; res.end(JSON.stringify({ error: e.message })) }
+      })
       // Delete Supabase auth user (requires SUPABASE_SERVICE_ROLE_KEY in .env.local)
       server.middlewares.use('/api/delete-account', async (req, res) => {
         if (req.method !== 'POST') { res.statusCode = 405; res.end('Method Not Allowed'); return }

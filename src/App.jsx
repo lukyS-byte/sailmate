@@ -80,12 +80,20 @@ export default function App() {
     supabase.auth.getSession().then(({ data: { session } }) => {
       const u = session?.user ?? null
       setUser(u)
-      if (u) loadUserData(u.id)
+      if (u) {
+        loadUserData(u.id)
+        // Idempotentně zajistí Storage bucket pro regattové obrázky
+        // (jednou za session — server-side, neblokuje UI)
+        fetch('/api/ensure-bucket', { method: 'POST' }).catch(() => {})
+      }
     })
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
       const u = session?.user ?? null
       setUser(u)
-      if (event === 'SIGNED_IN') await loadUserData(u.id)
+      if (event === 'SIGNED_IN') {
+        await loadUserData(u.id)
+        fetch('/api/ensure-bucket', { method: 'POST' }).catch(() => {})
+      }
       else if (event === 'SIGNED_OUT' && !localStorage.getItem('sailmate-crew-code')) {
         useStore.getState().clearData()
       }
