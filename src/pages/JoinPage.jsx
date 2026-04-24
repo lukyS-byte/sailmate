@@ -1,23 +1,17 @@
 import { useState, useEffect, useRef } from 'react'
-import { Anchor, Plus, Check, Loader2 } from 'lucide-react'
+import { Anchor, Loader2, LogIn, Users2 } from 'lucide-react'
 import { supabase } from '../lib/supabase'
-import { EXPENSE_CATEGORIES, formatCurrency } from '../utils/calc'
+import useStore from '../store/useStore'
 
 export default function JoinPage() {
   const [code, setCode] = useState('')
   const [voyage, setVoyage] = useState(null)
-  const [crewExpenses, setCrewExpenses] = useState([])
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
-  const [showForm, setShowForm] = useState(false)
-  const [submitted, setSubmitted] = useState(false)
-  const [userId, setUserId] = useState(null)
+  const [entering, setEntering] = useState(false)
   const didAutoLookup = useRef(false)
 
   useEffect(() => {
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setUserId(session?.user?.id ?? null)
-    })
     const c = new URLSearchParams(window.location.search).get('code')
     if (c && !didAutoLookup.current) {
       didAutoLookup.current = true
@@ -43,8 +37,6 @@ export default function JoinPage() {
       setLoading(false)
       if (!data) { setError('Kód nenalezen. Zkontroluj zadání.'); return }
       setVoyage(data)
-      const exps = await supaFetch(`/crew_expenses?select=*&code=eq.${encodeURIComponent(data.code)}&order=created_at.desc`)
-      setCrewExpenses(Array.isArray(exps) ? exps : [])
     } catch {
       setLoading(false)
       setError('Chyba připojení. Zkus to znovu.')
@@ -52,6 +44,17 @@ export default function JoinPage() {
   }
 
   const lookup = (e) => { e?.preventDefault(); doLookup(code) }
+
+  const enterVoyage = () => {
+    if (!voyage) return
+    setEntering(true)
+    // Odhlas případnou Supabase session (kapitán nemůže být zároveň posádkou)
+    supabase.auth.signOut().catch(() => {})
+    // Ulož kód a pokračuj do aplikace v crew modu
+    useStore.getState().enterCrewMode(voyage.code)
+    // Hard reload zajistí čistý boot do crew modu v App.jsx
+    setTimeout(() => { window.location.href = '/' }, 150)
+  }
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-navy-900 to-ocean-700 p-4 flex flex-col items-center">
@@ -88,90 +91,49 @@ export default function JoinPage() {
             {/* Voyage info */}
             <div className="bg-white dark:bg-slate-800 rounded-2xl p-5 shadow-2xl">
               <p className="text-xs text-slate-400 mb-1">Výprava nalezena ✓</p>
-              <h2 className="text-lg font-bold text-navy-800 dark:text-white">{voyage.voyage_data.name}</h2>
-              {voyage.voyage_data.boatName && (
-                <p className="text-sm text-slate-500 mt-0.5">⛵ {voyage.voyage_data.boatName}</p>
+              <h2 className="text-lg font-bold text-navy-800 dark:text-white">
+                {voyage.voyage_data.voyage?.name ?? voyage.voyage_data.name}
+              </h2>
+              {(voyage.voyage_data.voyage?.boatName ?? voyage.voyage_data.boatName) && (
+                <p className="text-sm text-slate-500 mt-0.5">
+                  ⛵ {voyage.voyage_data.voyage?.boatName ?? voyage.voyage_data.boatName}
+                </p>
               )}
-              <div className="flex gap-3 mt-3 text-sm text-slate-600 dark:text-slate-300">
-                {voyage.voyage_data.startDate && (
-                  <span>📅 {new Date(voyage.voyage_data.startDate).toLocaleDateString('cs')}</span>
-                )}
-                <span>👥 {(voyage.voyage_data.crew ?? []).length} lidí</span>
-              </div>
-
-              {/* Crew list */}
-              {(voyage.voyage_data.crew ?? []).length > 0 && (
-                <div className="flex flex-wrap gap-1.5 mt-3">
-                  {voyage.voyage_data.crew.map((c) => (
-                    <span key={c.id} className="badge bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 text-xs px-2 py-1">
-                      {c.name}{c.isSkipper ? ' ⚓' : ''}
-                    </span>
-                  ))}
-                </div>
-              )}
+              {(() => {
+                const v = voyage.voyage_data.voyage ?? voyage.voyage_data
+                return (
+                  <div className="flex flex-wrap gap-x-3 gap-y-1 mt-3 text-sm text-slate-600 dark:text-slate-300">
+                    {v.startDate && <span>📅 {new Date(v.startDate).toLocaleDateString('cs')}</span>}
+                    {v.homePort && <span>⚓ {v.homePort}</span>}
+                    <span>👥 {(v.crew ?? []).length} lidí</span>
+                  </div>
+                )
+              })()}
             </div>
 
-            {/* Add expense form */}
-            {!submitted ? (
-              <div className="bg-white dark:bg-slate-800 rounded-2xl p-5 shadow-2xl">
-                {!showForm ? (
-                  <button onClick={() => setShowForm(true)} className="btn-ocean w-full flex items-center justify-center gap-2">
-                    <Plus size={16} /> Přidat výdaj
-                  </button>
-                ) : (
-                  <AddCrewExpenseForm
-                    voyageData={voyage.voyage_data}
-                    code={voyage.code}
-                    userId={userId}
-                    onSubmitted={(exp) => {
-                      setCrewExpenses((p) => [exp, ...p])
-                      setShowForm(false)
-                      setSubmitted(true)
-                      setTimeout(() => setSubmitted(false), 3000)
-                    }}
-                  />
-                )}
+            {/* Enter voyage */}
+            <div className="bg-white dark:bg-slate-800 rounded-2xl p-5 shadow-2xl">
+              <div className="flex items-center gap-2 mb-2">
+                <Users2 size={16} className="text-ocean-500" />
+                <p className="font-semibold text-sm text-slate-700 dark:text-slate-200">Vstoupit jako člen posádky</p>
               </div>
-            ) : (
-              <div className="bg-emerald-50 border border-emerald-200 rounded-2xl p-5 text-center">
-                <Check size={24} className="text-emerald-500 mx-auto mb-2" />
-                <p className="font-semibold text-emerald-700">Výdaj přidán!</p>
-                <p className="text-sm text-emerald-600 mt-1">Kapitán ho uvidí při synchronizaci.</p>
-                <button onClick={() => setShowForm(true)} className="mt-3 text-sm text-emerald-700 underline">
-                  Přidat další
-                </button>
-              </div>
-            )}
-
-            {/* Crew expenses list */}
-            {crewExpenses.length > 0 && (
-              <div className="bg-white dark:bg-slate-800 rounded-2xl p-5 shadow-2xl">
-                <p className="text-sm font-semibold text-slate-600 dark:text-slate-300 mb-3">
-                  Výdaje posádky ({crewExpenses.length})
-                </p>
-                <div className="space-y-2">
-                  {crewExpenses.map((e) => {
-                    const cat = EXPENSE_CATEGORIES.find((c) => c.id === e.data.category)
-                    const payer = voyage.voyage_data.crew?.find((c) => c.id === e.data.paidBy)
-                    return (
-                      <div key={e.id} className="flex items-center gap-3 py-2 border-b border-slate-100 dark:border-slate-700 last:border-0">
-                        <span className="text-lg">{cat?.icon ?? '💰'}</span>
-                        <div className="flex-1 min-w-0">
-                          <p className="text-sm font-medium truncate">{e.data.description}</p>
-                          <p className="text-xs text-slate-400">{payer?.name ?? '—'}</p>
-                        </div>
-                        <span className="font-bold text-sm text-slate-700 dark:text-slate-200">
-                          {formatCurrency(e.data.amount, voyage.voyage_data.currency)}
-                        </span>
-                      </div>
-                    )
-                  })}
-                </div>
-              </div>
-            )}
+              <p className="text-xs text-slate-500 dark:text-slate-400 mb-4 leading-relaxed">
+                Získáš plný přístup k výpravě — deník, trasa, supplies, tracking, regaty i výdaje.
+                Nebudeš moct smazat výpravu ani závodní pokyny, ale vše ostatní můžeš vyplňovat
+                a kapitán to uvidí hned jakmile změníš.
+              </p>
+              <button
+                onClick={enterVoyage}
+                disabled={entering}
+                className="btn-ocean w-full flex items-center justify-center gap-2"
+              >
+                {entering ? <Loader2 size={16} className="animate-spin" /> : <LogIn size={16} />}
+                Vstoupit do výpravy
+              </button>
+            </div>
 
             <button
-              onClick={() => { setVoyage(null); setCode(''); setCrewExpenses([]) }}
+              onClick={() => { setVoyage(null); setCode('') }}
               className="w-full text-blue-200 text-sm underline text-center py-2"
             >
               Zadat jiný kód
@@ -183,105 +145,3 @@ export default function JoinPage() {
   )
 }
 
-function AddCrewExpenseForm({ voyageData, code, userId, onSubmitted }) {
-  const crew = voyageData.crew ?? []
-  const [form, setForm] = useState({
-    description: '',
-    amount: '',
-    category: 'food',
-    paidBy: crew[0]?.id ?? '',
-    splitAmong: crew.map((c) => c.id),
-    date: new Date().toISOString().slice(0, 10),
-  })
-
-  const f = (k) => (e) => setForm((p) => ({ ...p, [k]: e.target.value }))
-
-  const toggleSplit = (id) => setForm((p) => ({
-    ...p,
-    splitAmong: p.splitAmong.includes(id) ? p.splitAmong.filter((x) => x !== id) : [...p.splitAmong, id],
-  }))
-
-  const submit = async (e) => {
-    e.preventDefault()
-    if (!form.amount) return
-    const data = {
-      description: form.description || EXPENSE_CATEGORIES.find((c) => c.id === form.category)?.label,
-      amount: parseFloat(form.amount),
-      currency: voyageData.currency,
-      category: form.category,
-      paidBy: form.paidBy,
-      splitAmong: form.splitAmong,
-      date: form.date,
-      voyageId: voyageData.id,
-    }
-    const { data: row, error } = await supabase
-      .from('crew_expenses')
-      .insert({ code, data, added_by: userId })
-      .select()
-      .single()
-    if (!error) onSubmitted(row)
-  }
-
-  return (
-    <form onSubmit={submit} className="space-y-4">
-      <p className="text-sm font-semibold text-slate-700 dark:text-slate-200">Nový výdaj</p>
-      <div>
-        <label className="label">Popis (volitelné)</label>
-        <input className="input" placeholder="Večeře v restauraci..." value={form.description} onChange={f('description')} />
-      </div>
-      <div className="grid grid-cols-2 gap-3">
-        <div>
-          <label className="label">Částka ({voyageData.currency})</label>
-          <input className="input" type="number" step="0.01" placeholder="0.00" value={form.amount} onChange={f('amount')} required autoFocus />
-        </div>
-        <div>
-          <label className="label">Datum</label>
-          <input className="input" type="date" value={form.date} onChange={f('date')} />
-        </div>
-      </div>
-      <div>
-        <label className="label">Kategorie</label>
-        <div className="grid grid-cols-4 gap-1.5">
-          {EXPENSE_CATEGORIES.map((cat) => (
-            <button
-              key={cat.id}
-              type="button"
-              onClick={() => setForm((p) => ({ ...p, category: cat.id }))}
-              className={`flex flex-col items-center gap-0.5 rounded-xl p-2 text-xs transition-colors ${
-                form.category === cat.id ? 'bg-ocean-500 text-white' : 'bg-slate-100 text-slate-600'
-              }`}
-            >
-              <span className="text-base">{cat.icon}</span>
-              <span className="leading-tight text-center">{cat.label}</span>
-            </button>
-          ))}
-        </div>
-      </div>
-      {crew.length > 0 && (
-        <>
-          <div>
-            <label className="label">Zaplatil/a</label>
-            <select className="input" value={form.paidBy} onChange={f('paidBy')} required>
-              {crew.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
-            </select>
-          </div>
-          <div>
-            <label className="label">Rozdělit mezi</label>
-            <div className="flex flex-wrap gap-2">
-              {crew.map((c) => (
-                <button key={c.id} type="button" onClick={() => toggleSplit(c.id)}
-                  className={`badge text-sm px-3 py-1.5 transition-colors ${
-                    form.splitAmong.includes(c.id) ? 'bg-ocean-100 text-ocean-700 border border-ocean-300' : 'bg-slate-100 text-slate-500'
-                  }`}
-                >{c.name}</button>
-              ))}
-              <button type="button" onClick={() => setForm((p) => ({ ...p, splitAmong: crew.map((c) => c.id) }))}
-                className="badge text-sm px-3 py-1.5 bg-slate-100 text-slate-500">Všichni</button>
-            </div>
-          </div>
-        </>
-      )}
-      <button type="submit" className="btn-ocean w-full">Přidat výdaj</button>
-    </form>
-  )
-}

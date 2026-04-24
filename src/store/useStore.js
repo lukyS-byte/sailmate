@@ -17,15 +17,21 @@ const useStore = create(
       activeTrackId: null,
       activeVoyageId: null,
 
+      // ── Crew mode (posádka přihlášená přes kód) ─────────
+      crewMode: false,
+      crewCode: null,
+
       // ── Voyage ──────────────────────────────────────────
       addVoyage: (data) => {
+        if (get().crewMode) return null  // posádka nesmí zakládat nové výpravy
         const v = { ...data, id: uid(), createdAt: new Date().toISOString() }
         set((s) => ({ voyages: [...s.voyages, v], activeVoyageId: v.id }))
         return v.id
       },
       updateVoyage: (id, data) =>
         set((s) => ({ voyages: s.voyages.map((v) => (v.id === id ? { ...v, ...data } : v)) })),
-      deleteVoyage: (id) =>
+      deleteVoyage: (id) => {
+        if (get().crewMode) return  // posádka nesmí mazat výpravu
         set((s) => ({
           voyages: s.voyages.filter((v) => v.id !== id),
           expenses: s.expenses.filter((e) => e.voyageId !== id),
@@ -34,7 +40,8 @@ const useStore = create(
           logbook: s.logbook.filter((l) => l.voyageId !== id),
           regattas: s.regattas.filter((r) => r.voyageId !== id),
           activeVoyageId: s.activeVoyageId === id ? null : s.activeVoyageId,
-        })),
+        }))
+      },
       setActiveVoyage: (id) => set({ activeVoyageId: id }),
       getActiveVoyage: () => {
         const { voyages, activeVoyageId } = get()
@@ -104,8 +111,10 @@ const useStore = create(
       // ── Regattas ────────────────────────────────────────
       addRegatta: (data) =>
         set((s) => ({ regattas: [...s.regattas, { ...data, id: data.id ?? uid(), createdAt: new Date().toISOString() }] })),
-      deleteRegatta: (id) =>
-        set((s) => ({ regattas: s.regattas.filter((r) => r.id !== id) })),
+      deleteRegatta: (id) => {
+        if (get().crewMode) return  // posádka nesmí mazat závodní pokyny
+        set((s) => ({ regattas: s.regattas.filter((r) => r.id !== id) }))
+      },
 
       // ── Tracks (GPS tracking) ───────────────────────────
       startTrack: (voyageId, intervalSec = 900) => {
@@ -170,6 +179,53 @@ const useStore = create(
         get()
           .logbook.filter((l) => l.voyageId === voyageId)
           .sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp)),
+
+      // ── Crew mode ───────────────────────────────────────
+      enterCrewMode: (code) => {
+        localStorage.setItem('sailmate-crew-code', code)
+        set({ crewMode: true, crewCode: code })
+      },
+      exitCrewMode: () => {
+        localStorage.removeItem('sailmate-crew-code')
+        set({
+          crewMode: false, crewCode: null,
+          voyages: [], expenses: [], waypoints: [], supplies: [], logbook: [],
+          logDays: [], regattas: [], tracks: [], activeTrackId: null, activeVoyageId: null,
+        })
+      },
+
+      // Nahraď data jedné sdílené výpravy (pro captain i crew)
+      // snapshot = { voyage, expenses, waypoints, supplies, logDays, tracks, regattas }
+      mergeSharedVoyage: (snapshot) => {
+        if (!snapshot?.voyage) return
+        const vId = snapshot.voyage.id
+        set((s) => ({
+          voyages: [snapshot.voyage, ...s.voyages.filter((v) => v.id !== vId)],
+          expenses: [...s.expenses.filter((e) => e.voyageId !== vId), ...(snapshot.expenses ?? [])],
+          waypoints: [...s.waypoints.filter((w) => w.voyageId !== vId), ...(snapshot.waypoints ?? [])],
+          supplies: [...s.supplies.filter((x) => x.voyageId !== vId), ...(snapshot.supplies ?? [])],
+          logDays: [...s.logDays.filter((d) => d.voyageId !== vId), ...(snapshot.logDays ?? [])],
+          tracks: [...s.tracks.filter((t) => t.voyageId !== vId), ...(snapshot.tracks ?? [])],
+          regattas: [...s.regattas.filter((r) => r.voyageId !== vId), ...(snapshot.regattas ?? [])],
+          activeVoyageId: s.activeVoyageId ?? vId,
+        }))
+      },
+
+      // Vytáhni data jedné výpravy jako snapshot pro publikování do voyage_invites
+      getVoyageSnapshot: (voyageId) => {
+        const s = get()
+        const voyage = s.voyages.find((v) => v.id === voyageId)
+        if (!voyage) return null
+        return {
+          voyage,
+          expenses: s.expenses.filter((e) => e.voyageId === voyageId),
+          waypoints: s.waypoints.filter((w) => w.voyageId === voyageId),
+          supplies: s.supplies.filter((x) => x.voyageId === voyageId),
+          logDays: s.logDays.filter((d) => d.voyageId === voyageId),
+          tracks: s.tracks.filter((t) => t.voyageId === voyageId),
+          regattas: s.regattas.filter((r) => r.voyageId === voyageId),
+        }
+      },
 
       // ── Cloud sync helpers ───────────────────────────────
       importData: (data) =>

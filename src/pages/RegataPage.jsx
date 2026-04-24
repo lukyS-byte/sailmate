@@ -343,7 +343,7 @@ function RaceCard({ race, imgs, onLightbox }) {
 // ─── Hlavní stránka ─────────────────────────────────────────────────────────
 
 export default function RegataPage() {
-  const { activeVoyageId, regattas, addRegatta, deleteRegatta } = useStore()
+  const { activeVoyageId, regattas, addRegatta, deleteRegatta, crewMode } = useStore()
   const [uploading, setUploading] = useState(false)
   const [uploadStep, setUploadStep] = useState('')
   const [error, setError] = useState('')
@@ -469,12 +469,14 @@ export default function RegataPage() {
                   </p>
                 )}
               </div>
-              <button
-                className="btn-ghost p-2 text-red-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 shrink-0 ml-2"
-                onClick={() => deleteRegatta(regatta.id)}
-              >
-                <Trash2 size={16} />
-              </button>
+              {!crewMode && (
+                <button
+                  className="btn-ghost p-2 text-red-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 shrink-0 ml-2"
+                  onClick={() => deleteRegatta(regatta.id)}
+                >
+                  <Trash2 size={16} />
+                </button>
+              )}
             </div>
 
             {/* General notes */}

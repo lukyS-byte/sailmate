@@ -237,7 +237,7 @@ function NewVoyageModal({ onClose }) {
 export default function Dashboard() {
   const [showNew, setShowNew] = useState(false)
   const navigate = useNavigate()
-  const { voyages, expenses, regattas, activeVoyageId, setActiveVoyage, activeTrackId } = useStore()
+  const { voyages, expenses, regattas, activeVoyageId, setActiveVoyage, activeTrackId, crewMode } = useStore()
   const active = voyages.find((v) => v.id === activeVoyageId)
   const voyageExpenses = expenses.filter((e) => e.voyageId === activeVoyageId)
   const totalExpenses = voyageExpenses.reduce((s, e) => s + e.amount, 0)
@@ -264,10 +264,23 @@ export default function Dashboard() {
           </h1>
           <p className="text-xs text-slate-400 mt-0.5">Kapitánův lodní asistent</p>
         </div>
-        <button onClick={() => setShowNew(true)} className="btn-ocean flex items-center gap-1.5 text-sm">
-          <Plus size={16} /> Nová výprava
-        </button>
+        {!crewMode && (
+          <button onClick={() => setShowNew(true)} className="btn-ocean flex items-center gap-1.5 text-sm">
+            <Plus size={16} /> Nová výprava
+          </button>
+        )}
       </div>
+
+      {/* Crew mode banner */}
+      {crewMode && (
+        <div className="rounded-2xl bg-purple-500 text-white px-4 py-3 flex items-center gap-2 shadow-md">
+          <Users2 size={16} />
+          <div className="flex-1">
+            <p className="text-sm font-semibold">Jsi v výpravě jako posádka</p>
+            <p className="text-[11px] text-white/80">Vše se ukládá a synchronizuje s kapitánem v reálném čase</p>
+          </div>
+        </div>
+      )}
 
       {/* Live tracking banner */}
       {activeTrackId && (
