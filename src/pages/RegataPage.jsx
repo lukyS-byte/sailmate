@@ -352,7 +352,7 @@ export default function RegataPage() {
   const fileInputRef = useRef(null)
 
   const voyageRegattas = regattas.filter((r) => r.voyageId === activeVoyageId)
-  const BUILD_VERSION = 'v16'
+  const BUILD_VERSION = typeof __BUILD_SHA__ !== 'undefined' ? __BUILD_SHA__ : 'dev'
 
   const handleFile = async (file) => {
     if (!file || file.type !== 'application/pdf') { setError('Vyberte PDF soubor.'); return }
