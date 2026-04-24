@@ -27,10 +27,16 @@ export async function loadSharedVoyage(code) {
   return data
 }
 
-// Přihlas se na Realtime změny v tomto kódu. Vrací unsubscribe funkci.
+// Přihlas se na Realtime změny v tomto kódu + polling fallback (8s).
 // onChange(voyage_data, updated_at)
+// Polling je pojistka pro případ, že voyage_invites není v supabase_realtime
+// publikaci — pak Realtime tiše selže a sync by šel jen po reloadu.
+// Když Realtime funguje, polling jen potvrzuje stav a nic nového nezpůsobí
+// (lastPayload deduplikace v App.jsx).
 export function subscribeSharedVoyage(code, onChange) {
   if (!code) return () => {}
+  let lastAt = null
+
   const channel = supabase
     .channel(`shared-voyage:${code}`)
     .on(
@@ -38,9 +44,27 @@ export function subscribeSharedVoyage(code, onChange) {
       { event: '*', schema: 'public', table: 'voyage_invites', filter: `code=eq.${code}` },
       (payload) => {
         const row = payload.new ?? payload.record
-        if (row?.voyage_data) onChange(row.voyage_data, row.updated_at)
+        if (row?.voyage_data) {
+          lastAt = row.updated_at
+          onChange(row.voyage_data, row.updated_at)
+        }
       }
     )
     .subscribe()
-  return () => supabase.removeChannel(channel)
+
+  // Polling fallback — every 8s. Zastaví se s unsubscribem.
+  const pollInterval = setInterval(async () => {
+    try {
+      const row = await loadSharedVoyage(code)
+      if (!row?.voyage_data) return
+      if (row.updated_at === lastAt) return
+      lastAt = row.updated_at
+      onChange(row.voyage_data, row.updated_at)
+    } catch {}
+  }, 8000)
+
+  return () => {
+    clearInterval(pollInterval)
+    supabase.removeChannel(channel)
+  }
 }
