@@ -316,9 +316,8 @@ const useStore = create(
       },
 
       // Vytáhni data jedné výpravy jako snapshot pro publikování do voyage_invites.
-      // Regattám stripujeme pageData (base64 PDF obrázky) — jsou obří (MB) a
-      // způsobují statement timeout v Supabase upsertu. Crew uvidí metadata,
-      // ne obrázky schémat.
+      // pageData (base64 obrázky) není v snapshotu — obrázky se nahrávají do
+      // Supabase Storage, v JSONB jsou jen pageUrls.
       getVoyageSnapshot: (voyageId) => {
         const s = get()
         const voyage = s.voyages.find((v) => v.id === voyageId)
@@ -332,7 +331,7 @@ const useStore = create(
           tracks: s.tracks.filter((t) => t.voyageId === voyageId),
           regattas: s.regattas
             .filter((r) => r.voyageId === voyageId)
-            .map(({ pageData, ...r }) => r),
+            .map(({ pageData, ...r }) => r),  // odstraň lokální base64 cache
         }
       },
 

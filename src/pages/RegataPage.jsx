@@ -7,6 +7,7 @@ import {
 import * as pdfjsLib from 'pdfjs-dist/legacy/build/pdf.mjs'
 import workerUrl from 'pdfjs-dist/legacy/build/pdf.worker.min.mjs?url'
 import useStore from '../store/useStore'
+import { uploadRegattaPages, deleteRegattaPages } from '../lib/regattaStorage'
 
 pdfjsLib.GlobalWorkerOptions.workerSrc = workerUrl
 
@@ -228,11 +229,15 @@ function PreviewDialog({ result, onConfirm, onCancel }) {
 
 // ─── Race card ──────────────────────────────────────────────────────────────
 
-function RaceCard({ race, imgs, onLightbox }) {
+function RaceCard({ race, imgs, urls, onLightbox }) {
   const [open, setOpen] = useState(false)
-  const pd = imgs[race.pageIndex ?? 0] ?? null
-  const mapImg = pd?.crop ?? pd?.full ?? null   // oříznutá mapa, jinak celá stránka
-  const fullImg = pd?.full ?? null               // celá stránka pro lightbox
+  const idx = race.pageIndex ?? 0
+  // Priorita: URL z Storage (pro sdílené) → base64 z pageData (starý lokální formát)
+  const url = urls?.[idx] ?? null
+  const pd = imgs?.[idx] ?? null
+  const mapSrc = url?.crop ?? (pd?.crop ? `data:image/jpeg;base64,${pd.crop}` : null)
+                ?? url?.full ?? (pd?.full ? `data:image/jpeg;base64,${pd.full}` : null)
+  const fullSrc = url?.full ?? (pd?.full ? `data:image/jpeg;base64,${pd.full}` : null) ?? mapSrc
 
   return (
     <div className="card mb-3 overflow-hidden p-0">
@@ -313,15 +318,16 @@ function RaceCard({ race, imgs, onLightbox }) {
           )}
 
           {/* Map image — oříznutá na diagram trasy */}
-          {mapImg ? (
+          {mapSrc ? (
             <div
               className="relative group cursor-zoom-in border-t border-slate-100 dark:border-slate-700"
-              onClick={() => onLightbox(`data:image/jpeg;base64,${fullImg ?? mapImg}`)}
+              onClick={() => onLightbox(fullSrc ?? mapSrc)}
             >
               <img
-                src={`data:image/jpeg;base64,${mapImg}`}
+                src={mapSrc}
                 alt={`Schéma rozjížďky ${race.number}`}
                 className="w-full block"
+                loading="lazy"
               />
               <div className="absolute inset-0 bg-black/0 group-hover:bg-black/15 transition-colors flex items-center justify-center">
                 <div className="bg-black/50 text-white rounded-full p-2 opacity-0 group-hover:opacity-100 transition-opacity">
@@ -382,20 +388,33 @@ export default function RegataPage() {
     }
   }
 
-  const handleConfirm = (result) => {
+  const handleConfirm = async (result) => {
     if (!preview) return
     const pageData = preview.pageData
-    setPreview(null)  // zavři dialog hned, ukládání může být pomalé
-    // Odložit ukládání do dalšího ticku, ať se stihne re-render (zavřít modál)
-    setTimeout(() => {
-      const id = crypto.randomUUID()
-      try {
-        addRegatta({ voyageId: activeVoyageId, id, ...result, pageData })
-      } catch (err) {
-        console.error('Regatta save failed:', err)
-        setError(`Uložení selhalo: ${err?.message || String(err)}`)
+    const id = crypto.randomUUID()
+    setPreview(null)  // zavři dialog hned
+    setUploading(true)
+    setUploadStep('Nahrávám obrázky schémat…')
+    try {
+      // Nahraj obrázky do Supabase Storage → dostaneme URL
+      const pageUrls = await uploadRegattaPages(id, pageData, (done, total) => {
+        setUploadStep(`Nahrávám schémata ${done}/${total}…`)
+      })
+      // Ulož regatu s URLs (malé, syncují se). pageData drž jen lokálně
+      // jako rychlou cache (nebude v persist ani v shared snapshotu).
+      addRegatta({ voyageId: activeVoyageId, id, ...result, pageUrls, pageData })
+    } catch (err) {
+      console.error('Regatta save failed:', err)
+      const msg = err?.message || String(err)
+      if (/bucket|not.*found/i.test(msg)) {
+        setError(`Bucket "regatta-pages" neexistuje v Supabase Storage. Vytvoř ho (public) v dashboardu.`)
+      } else {
+        setError(`Uložení selhalo: ${msg}`)
       }
-    }, 50)
+    } finally {
+      setUploading(false)
+      setUploadStep('')
+    }
   }
 
   return (
@@ -454,7 +473,8 @@ export default function RegataPage() {
 
       {/* Regattas */}
       {voyageRegattas.map((regatta) => {
-        const imgs = regatta.pageData ?? []   // imgs[i] = { full, crop }
+        const imgs = regatta.pageData ?? []     // starý lokální formát (base64)
+        const urls = regatta.pageUrls ?? []     // nový formát (Storage URLs)
         return (
           <div key={regatta.id} className="mb-8">
             {/* Regatta header */}
@@ -472,7 +492,11 @@ export default function RegataPage() {
               {!crewMode && (
                 <button
                   className="btn-ghost p-2 text-red-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 shrink-0 ml-2"
-                  onClick={() => deleteRegatta(regatta.id)}
+                  onClick={() => {
+                    deleteRegatta(regatta.id)
+                    // Úklid obrázků ze Storage (best-effort, neblokuje UI)
+                    deleteRegattaPages(regatta.id).catch((e) => console.warn('cleanup failed', e))
+                  }}
                 >
                   <Trash2 size={16} />
                 </button>
@@ -535,7 +559,7 @@ export default function RegataPage() {
 
                   {/* Race cards */}
                   {(day.races ?? []).map((race) => (
-                    <RaceCard key={race.number} race={race} imgs={imgs} onLightbox={setLightbox} />
+                    <RaceCard key={race.number} race={race} imgs={imgs} urls={urls} onLightbox={setLightbox} />
                   ))}
                 </div>
               )
