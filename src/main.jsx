@@ -21,6 +21,17 @@ import './index.css'
 import 'leaflet/dist/leaflet.css'
 import App from './App'
 
+// Auto-reload když service worker aktivuje novou verzi — jinak na iOS PWA
+// uživatel drží starou app napořád.
+if ('serviceWorker' in navigator) {
+  let refreshing = false
+  navigator.serviceWorker.addEventListener('controllerchange', () => {
+    if (refreshing) return
+    refreshing = true
+    window.location.reload()
+  })
+}
+
 createRoot(document.getElementById('root')).render(
   <StrictMode>
     <BrowserRouter>
