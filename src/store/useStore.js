@@ -203,6 +203,8 @@ const useStore = create(
       // ── Regattas ────────────────────────────────────────
       addRegatta: (data) =>
         set((s) => ({ regattas: [...s.regattas, { ...data, id: data.id ?? uid(), createdAt: new Date().toISOString() }] })),
+      updateRegatta: (id, data) =>
+        set((s) => ({ regattas: s.regattas.map((r) => (r.id === id ? { ...r, ...data } : r)) })),
       deleteRegatta: (id) => {
         if (get().crewMode) return  // posádka nesmí mazat závodní pokyny
         set((s) => ({ regattas: s.regattas.filter((r) => r.id !== id) }))

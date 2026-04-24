@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import {
   Trophy, Upload, Trash2, Loader, ChevronDown, ChevronUp,
   X, ZoomIn, Wind, Clock, Ruler, Info, Flag, Navigation,
@@ -349,16 +349,48 @@ function RaceCard({ race, imgs, urls, onLightbox }) {
 // ─── Hlavní stránka ─────────────────────────────────────────────────────────
 
 export default function RegataPage() {
-  const { activeVoyageId, regattas, addRegatta, deleteRegatta, crewMode } = useStore()
+  const { activeVoyageId, regattas, addRegatta, updateRegatta, deleteRegatta, crewMode } = useStore()
   const [uploading, setUploading] = useState(false)
   const [uploadStep, setUploadStep] = useState('')
   const [error, setError] = useState('')
   const [lightbox, setLightbox] = useState(null)
   const [preview, setPreview] = useState(null)
+  const [migrating, setMigrating] = useState(null)  // { event, done, total } nebo null
   const fileInputRef = useRef(null)
 
   const voyageRegattas = regattas.filter((r) => r.voyageId === activeVoyageId)
   const BUILD_VERSION = typeof __BUILD_SHA__ !== 'undefined' ? __BUILD_SHA__ : 'dev'
+
+  // ── Migrace: regatty s pageData ale bez pageUrls nahraj do Storage ─────
+  // Proběhne automaticky na kapitánově zařízení (crew mode pageData nemá).
+  useEffect(() => {
+    if (crewMode) return
+    const toMigrate = regattas.filter(
+      (r) => (r.pageData?.length > 0) && !(r.pageUrls?.length > 0)
+    )
+    if (toMigrate.length === 0) return
+
+    let cancelled = false
+    ;(async () => {
+      for (const r of toMigrate) {
+        if (cancelled) return
+        setMigrating({ event: r.event ?? 'Regata', done: 0, total: r.pageData.length })
+        try {
+          const pageUrls = await uploadRegattaPages(r.id, r.pageData, (done, total) => {
+            if (!cancelled) setMigrating({ event: r.event ?? 'Regata', done, total })
+          })
+          if (!cancelled) updateRegatta(r.id, { pageUrls })
+        } catch (e) {
+          console.error('Migrace regatty selhala:', e)
+          // Pokračuj s další — neblokujeme UI na jedné chybě
+        }
+      }
+      if (!cancelled) setMigrating(null)
+    })()
+
+    return () => { cancelled = true }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [regattas.length, crewMode])
 
   const handleFile = async (file) => {
     if (!file || file.type !== 'application/pdf') { setError('Vyberte PDF soubor.'); return }
@@ -437,6 +469,19 @@ export default function RegataPage() {
           </button>
         )}
       </div>
+
+      {/* Migrace obrázků do Storage (kapitán, pro staré regatty) */}
+      {migrating && (
+        <div className="mb-4 rounded-xl bg-blue-50 border border-blue-200 text-blue-800 px-4 py-3 flex items-center gap-3">
+          <Loader size={16} className="animate-spin shrink-0" />
+          <div className="flex-1 min-w-0">
+            <p className="text-xs font-semibold">Nahrávám obrázky pro posádku…</p>
+            <p className="text-[11px] text-blue-600 truncate">
+              {migrating.event} — {migrating.done}/{migrating.total} stránek
+            </p>
+          </div>
+        </div>
+      )}
 
       {/* Error */}
       {error && (
