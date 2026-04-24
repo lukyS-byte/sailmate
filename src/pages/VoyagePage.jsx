@@ -5,6 +5,7 @@ import useStore from '../store/useStore'
 import Modal from '../components/Modal'
 import { RoleBadge, RolePickerModal } from '../components/RoleComponents'
 import { supabase } from '../lib/supabase'
+import { publishSharedVoyage } from '../lib/sharedSync'
 
 const HR_PORTS = [
   'Split','Trogir','Šibenik','Zadar','Biograd na Moru','Murter','Primošten',
@@ -179,11 +180,16 @@ export default function VoyagePage() {
     navigate('/')
   }
 
-  const generateInviteCode = () => {
+  const generateInviteCode = async () => {
     if (!voyage) return
     const code = Math.random().toString(36).substr(2, 6).toUpperCase()
-    // Uložíme kód přímo do výpravy — App.jsx si sám zajistí publish + subscribe přes Realtime
+    // Uložíme kód do výpravy (App.jsx pak zajistí subscribe + další publishy)
     updateVoyage(voyage.id, { inviteCode: code })
+    // Publikuj řádek do Supabase HNED, ať posádka nemusí čekat na 1500ms debounce.
+    // Bez toho by crew po zadání kódu do 1,5s viděla "Kód nenalezen".
+    const snapshot = useStore.getState().getVoyageSnapshot(voyage.id)
+    const uid = (await supabase.auth.getUser()).data.user?.id ?? null
+    if (snapshot) await publishSharedVoyage(code, snapshot, uid)
   }
 
   const copyInviteLink = () => {
