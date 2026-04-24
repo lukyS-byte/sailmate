@@ -183,13 +183,23 @@ export default function VoyagePage() {
   const generateInviteCode = async () => {
     if (!voyage) return
     const code = Math.random().toString(36).substr(2, 6).toUpperCase()
-    // Uložíme kód do výpravy (App.jsx pak zajistí subscribe + další publishy)
     updateVoyage(voyage.id, { inviteCode: code })
-    // Publikuj řádek do Supabase HNED, ať posádka nemusí čekat na 1500ms debounce.
-    // Bez toho by crew po zadání kódu do 1,5s viděla "Kód nenalezen".
+    // Publikuj řádek HNED (bez 1500ms debounce) ať posádka může zadat kód ihned.
     const snapshot = useStore.getState().getVoyageSnapshot(voyage.id)
     const uid = (await supabase.auth.getUser()).data.user?.id ?? null
-    if (snapshot) await publishSharedVoyage(code, snapshot, uid)
+    console.log('[invite] publishing code', code, 'uid', uid, 'snapshot?', !!snapshot)
+    if (!snapshot) { alert('Chyba: snapshot výpravy je prázdný'); return }
+    const { data, error } = await publishSharedVoyage(code, snapshot, uid)
+    console.log('[invite] publish result', { data, error })
+    if (error) {
+      alert(`Publish failed: ${error.message || error.code || JSON.stringify(error)}`)
+      return
+    }
+    // Ověř že row v Supabase opravdu je
+    const { data: check, error: checkErr } = await supabase
+      .from('voyage_invites').select('code').eq('code', code).maybeSingle()
+    console.log('[invite] verify row', { check, checkErr })
+    if (!check) alert(`Kód ${code} se nezapsal do Supabase (RLS?).`)
   }
 
   const copyInviteLink = () => {
