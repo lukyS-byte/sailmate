@@ -5,8 +5,20 @@ import { config as loadDotenv } from 'dotenv'
 import { jsonrepair } from 'jsonrepair'
 import { resolve } from 'path'
 import { fileURLToPath } from 'url'
+import { execSync } from 'child_process'
 const __dirname = fileURLToPath(new URL('.', import.meta.url))
 loadDotenv({ path: resolve(__dirname, '.env.local'), override: true })
+
+const buildSha = (() => {
+  try {
+    // Vercel expose COMMIT_SHA i VERCEL_GIT_COMMIT_SHA; lokálně použijeme git
+    return (
+      process.env.VERCEL_GIT_COMMIT_SHA ||
+      process.env.COMMIT_SHA ||
+      execSync('git rev-parse --short HEAD').toString().trim()
+    ).slice(0, 7)
+  } catch { return 'dev' }
+})()
 
 // Server-side Claude proxy — key never reaches the browser
 function claudeProxyPlugin() {
@@ -202,6 +214,9 @@ ${text ? `Text z PDF:\n${text.slice(0, 6000)}` : ''}`
 }
 
 export default defineConfig({
+  define: {
+    __BUILD_SHA__: JSON.stringify(buildSha),
+  },
   plugins: [
     claudeProxyPlugin(),
     react(),

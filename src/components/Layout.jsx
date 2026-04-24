@@ -101,6 +101,9 @@ export default function Layout({ children, user }) {
       )}
       <main className="content-with-nav">
         {children}
+        <div className="text-center text-[10px] text-slate-300 dark:text-slate-600 pt-4 pb-2 font-mono">
+          build {typeof __BUILD_SHA__ !== 'undefined' ? __BUILD_SHA__ : 'dev'}
+        </div>
       </main>
       <BottomNav />
       <InstallPrompt />
