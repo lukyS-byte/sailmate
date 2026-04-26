@@ -28,21 +28,21 @@ function RouteMap({ waypoints }) {
     mapRef.current = map
 
     // ── Base mapy ─────────────────────────────────────────────
-    const oceanBase = L.tileLayer(
-      'https://services.arcgisonline.com/ArcGIS/rest/services/Ocean/World_Ocean_Base/MapServer/tile/{z}/{y}/{x}',
-      { attribution: 'Esri, GEBCO, NOAA', maxZoom: 13 }
-    )
-    const oceanLabels = L.tileLayer(
-      'https://services.arcgisonline.com/arcgis/rest/services/Ocean/World_Ocean_Reference/MapServer/tile/{z}/{y}/{x}',
-      { maxZoom: 13, pane: 'overlayPane' }
-    )
-    const oceanGroup = L.layerGroup([oceanBase, oceanLabels]).addTo(map)
-
-    const osm = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    // OSM jako spolehlivý podklad pro vysoký zoom (do 19)
+    const osmTiles = () => L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
       attribution: '&copy; <a href="https://www.openstreetmap.org">OpenStreetMap</a>',
       maxZoom: 19,
     })
 
+    // Esri Ocean batymetrie — končí v zoomu 13, používá se jako overlay nad OSM
+    const oceanOverlay = () => L.tileLayer(
+      'https://services.arcgisonline.com/ArcGIS/rest/services/Ocean/World_Ocean_Base/MapServer/tile/{z}/{y}/{x}',
+      { attribution: 'Esri, GEBCO, NOAA', maxNativeZoom: 13, maxZoom: 19, opacity: 0.75 }
+    )
+
+    // "Námořní" = OSM + Esri Ocean batymetrie přes to (přiblížení = OSM zůstává)
+    const nauticalGroup = L.layerGroup([osmTiles(), oceanOverlay()]).addTo(map)
+    const osmGroup = L.layerGroup([osmTiles()])
     const satellite = L.tileLayer(
       'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
       { attribution: 'Esri, Maxar, Earthstar Geographics', maxZoom: 19 }
@@ -51,14 +51,14 @@ function RouteMap({ waypoints }) {
     // ── Overlay: námořní značky ───────────────────────────────
     const seamap = L.tileLayer('https://tiles.openseamap.org/seamark/{z}/{x}/{y}.png', {
       attribution: '&copy; <a href="https://www.openseamap.org">OpenSeaMap</a>',
-      opacity: 0.85,
+      opacity: 0.9,
       maxZoom: 18,
     }).addTo(map)
 
     L.control.layers(
       {
-        '🌊 Námořní (Esri Ocean)': oceanGroup,
-        '🗺️ OpenStreetMap': osm,
+        '🌊 Námořní (OSM + batymetrie)': nauticalGroup,
+        '🗺️ OpenStreetMap': osmGroup,
         '🛰️ Satelit': satellite,
       },
       { 'Námořní značky (bóje, mariny, hloubky)': seamap },
