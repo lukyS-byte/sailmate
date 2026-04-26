@@ -379,10 +379,13 @@ export default function RoutePage() {
       </div>
 
       {/* Map */}
-      {waypoints.some((w) => w.lat && w.lng) && (
-        <div className="rounded-2xl overflow-hidden border border-slate-200 dark:border-slate-700" style={{ height: 280 }}>
-          <RouteMap waypoints={waypoints} />
-        </div>
+      <div className="rounded-2xl overflow-hidden border border-slate-200 dark:border-slate-700" style={{ height: 320 }}>
+        <RouteMap waypoints={waypoints} />
+      </div>
+      {!waypoints.some((w) => w.lat && w.lng) && (
+        <p className="text-xs text-slate-500 dark:text-slate-400 -mt-2 px-1">
+          Tip: přidej waypointu GPS souřadnice a uvidíš ho na mapě. Mezitím můžeš mapu prohlížet a otevírat ji v Navionics ⚓.
+        </p>
       )}
 
       {/* Waypoints */}
