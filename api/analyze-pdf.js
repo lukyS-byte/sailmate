@@ -4,7 +4,12 @@ export default async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).end()
 
   const key = process.env.ANTHROPIC_KEY || process.env.ANTHROPIC_API_KEY
-  if (!key) return res.status(503).json({ error: 'ANTHROPIC_KEY není nastaven' })
+  const oauthToken = process.env.CLAUDE_CODE_OAUTH_TOKEN
+  if (!key && !oauthToken) return res.status(503).json({ error: 'ANTHROPIC_KEY není nastaven' })
+
+  const authHeaders = key
+    ? { 'x-api-key': key }
+    : { 'Authorization': `Bearer ${oauthToken}`, 'anthropic-beta': 'oauth-2025-04-20' }
 
   const { text = '' } = req.body
 
@@ -13,7 +18,7 @@ export default async function handler(req, res) {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'x-api-key': key,
+        ...authHeaders,
         'anthropic-version': '2023-06-01',
       },
       body: JSON.stringify({
