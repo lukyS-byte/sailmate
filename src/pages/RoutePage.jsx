@@ -27,17 +27,41 @@ function RouteMap({ waypoints }) {
     const map = L.map(divRef.current, { zoomControl: true, scrollWheelZoom: true })
     mapRef.current = map
 
+    // ── Base mapy ─────────────────────────────────────────────
+    const oceanBase = L.tileLayer(
+      'https://services.arcgisonline.com/ArcGIS/rest/services/Ocean/World_Ocean_Base/MapServer/tile/{z}/{y}/{x}',
+      { attribution: 'Esri, GEBCO, NOAA', maxZoom: 13 }
+    )
+    const oceanLabels = L.tileLayer(
+      'https://services.arcgisonline.com/arcgis/rest/services/Ocean/World_Ocean_Reference/MapServer/tile/{z}/{y}/{x}',
+      { maxZoom: 13, pane: 'overlayPane' }
+    )
+    const oceanGroup = L.layerGroup([oceanBase, oceanLabels]).addTo(map)
+
     const osm = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
       attribution: '&copy; <a href="https://www.openstreetmap.org">OpenStreetMap</a>',
-    }).addTo(map)
+      maxZoom: 19,
+    })
+
+    const satellite = L.tileLayer(
+      'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
+      { attribution: 'Esri, Maxar, Earthstar Geographics', maxZoom: 19 }
+    )
+
+    // ── Overlay: námořní značky ───────────────────────────────
     const seamap = L.tileLayer('https://tiles.openseamap.org/seamark/{z}/{x}/{y}.png', {
       attribution: '&copy; <a href="https://www.openseamap.org">OpenSeaMap</a>',
-      opacity: 0.7,
+      opacity: 0.85,
+      maxZoom: 18,
     }).addTo(map)
 
     L.control.layers(
-      { 'OpenStreetMap': osm },
-      { 'Námořní vrstva (OpenSeaMap)': seamap },
+      {
+        '🌊 Námořní (Esri Ocean)': oceanGroup,
+        '🗺️ OpenStreetMap': osm,
+        '🛰️ Satelit': satellite,
+      },
+      { 'Námořní značky (bóje, mariny, hloubky)': seamap },
       { collapsed: true, position: 'topright' }
     ).addTo(map)
 
