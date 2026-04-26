@@ -27,13 +27,39 @@ function RouteMap({ waypoints }) {
     const map = L.map(divRef.current, { zoomControl: true, scrollWheelZoom: true })
     mapRef.current = map
 
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    const osm = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
       attribution: '&copy; <a href="https://www.openstreetmap.org">OpenStreetMap</a>',
     }).addTo(map)
-    L.tileLayer('https://tiles.openseamap.org/seamark/{z}/{x}/{y}.png', {
+    const seamap = L.tileLayer('https://tiles.openseamap.org/seamark/{z}/{x}/{y}.png', {
       attribution: '&copy; <a href="https://www.openseamap.org">OpenSeaMap</a>',
       opacity: 0.7,
     }).addTo(map)
+
+    L.control.layers(
+      { 'OpenStreetMap': osm },
+      { 'Námořní vrstva (OpenSeaMap)': seamap },
+      { collapsed: true, position: 'topright' }
+    ).addTo(map)
+
+    // Tlačítko "Otevřít v Navionics" — centrum mapy
+    const NavionicsCtrl = L.Control.extend({
+      options: { position: 'topleft' },
+      onAdd() {
+        const btn = L.DomUtil.create('a', 'leaflet-bar leaflet-control')
+        btn.href = '#'
+        btn.title = 'Otevřít v Navionics Web App'
+        btn.innerHTML = '⚓'
+        btn.style.cssText = 'background:#fff;width:30px;height:30px;line-height:30px;text-align:center;font-size:16px;text-decoration:none;color:#0a2540;'
+        L.DomEvent.on(btn, 'click', (e) => {
+          L.DomEvent.preventDefault(e)
+          const c = map.getCenter()
+          const z = Math.max(map.getZoom(), 10)
+          window.open(`https://webapp.navionics.com/?lang=cs#boating@${z}&key=${c.lat.toFixed(5)}_${c.lng.toFixed(5)}`, '_blank')
+        })
+        return btn
+      },
+    })
+    map.addControl(new NavionicsCtrl())
 
     const pts = waypoints.filter((w) => w.lat && w.lng)
     pts.forEach((wp, idx) => {
@@ -42,6 +68,8 @@ function RouteMap({ waypoints }) {
       let popup = `<strong>${wp.name}</strong>`
       if (wp.plannedArrival) popup += `<br>${new Date(wp.plannedArrival).toLocaleDateString('cs')}`
       if (wp.portFees > 0) popup += `<br>${wp.portFees} €/noc`
+      const navUrl = `https://webapp.navionics.com/?lang=cs#boating@13&key=${wp.lat.toFixed(5)}_${wp.lng.toFixed(5)}`
+      popup += `<br><a href="${navUrl}" target="_blank" rel="noopener" style="color:#0ea5e9;font-size:12px;">⚓ Otevřít v Navionics</a>`
       marker.bindPopup(popup)
     })
 
