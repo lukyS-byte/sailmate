@@ -31,6 +31,12 @@ export default async function handler(req, res) {
       }),
     })
     const json = await upstream.json()
+    if (!upstream.ok || json.error) {
+      return res.status(upstream.status || 500).json({
+        error: json.error?.message || `Anthropic ${upstream.status}`,
+        upstream: json,
+      })
+    }
     const raw = json.content?.[0]?.text?.trim() ?? ''
     const start = raw.indexOf('{')
     const end = raw.lastIndexOf('}')
