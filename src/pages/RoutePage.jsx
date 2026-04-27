@@ -40,8 +40,32 @@ function RouteMap({ waypoints }) {
       { attribution: 'Esri, GEBCO, NOAA', maxNativeZoom: 13, maxZoom: 19, opacity: 0.75 }
     )
 
-    // "Námořní" = OSM + Esri Ocean batymetrie přes to (přiblížení = OSM zůstává)
+    // EMODnet Bathymetry — vysoké rozlišení pro evropská moře (Jadran, Středomoří, Baltské, Severní)
+    const emodnetBathy = () => L.tileLayer.wms('https://ows.emodnet-bathymetry.eu/wms', {
+      layers: 'emodnet:mean_atlas_land',
+      format: 'image/png',
+      transparent: true,
+      attribution: 'EMODnet Bathymetry Consortium (EU)',
+      opacity: 0.85,
+      maxZoom: 19,
+    })
+    const emodnetContours = () => L.tileLayer.wms('https://ows.emodnet-bathymetry.eu/wms', {
+      layers: 'emodnet:contours',
+      format: 'image/png',
+      transparent: true,
+      maxZoom: 19,
+    })
+
+    // "Námořní" (svět) = OSM + Esri Ocean batymetrie
     const nauticalGroup = L.layerGroup([osmTiles(), oceanOverlay()]).addTo(map)
+    // "Evropské moře" = OSM + EMODnet detailní batymetrie + izobaty
+    const europeNauticalGroup = L.layerGroup([osmTiles(), emodnetBathy(), emodnetContours()])
+    // OpenTopoMap — topografie pobřeží (zdarma, žádný klíč)
+    const topo = L.tileLayer('https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png', {
+      attribution: '&copy; OpenTopoMap (CC-BY-SA), &copy; OpenStreetMap',
+      maxZoom: 17,
+      subdomains: ['a', 'b', 'c'],
+    })
     const osmGroup = L.layerGroup([osmTiles()])
     const satellite = L.tileLayer(
       'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
@@ -57,7 +81,9 @@ function RouteMap({ waypoints }) {
 
     L.control.layers(
       {
-        '🌊 Námořní (OSM + batymetrie)': nauticalGroup,
+        '🌊 Námořní (svět)': nauticalGroup,
+        '🇪🇺 EMODnet (detail evropská moře)': europeNauticalGroup,
+        '⛰️ Topo pobřeží (OpenTopoMap)': topo,
         '🗺️ OpenStreetMap': osmGroup,
         '🛰️ Satelit': satellite,
       },
