@@ -1,11 +1,12 @@
 import { NavLink } from 'react-router-dom'
-import { Home, Anchor, Wallet, Map, BookOpen, Trophy } from 'lucide-react'
+import { Home, Anchor, Wallet, Map, BookOpen, Trophy, Wind } from 'lucide-react'
 
 const tabs = [
   { to: '/', icon: Home, label: 'Přehled' },
   { to: '/voyage', icon: Anchor, label: 'Výprava' },
-  { to: '/expenses', icon: Wallet, label: 'Náklady' },
   { to: '/route', icon: Map, label: 'Trasa' },
+  { to: '/weather', icon: Wind, label: 'Počasí' },
+  { to: '/expenses', icon: Wallet, label: 'Náklady' },
   { to: '/log', icon: BookOpen, label: 'Deník' },
   { to: '/regata', icon: Trophy, label: 'Regata' },
 ]

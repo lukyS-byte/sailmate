@@ -16,6 +16,7 @@ import SharePage from './pages/SharePage'
 import JoinPage from './pages/JoinPage'
 import PrivacyPage from './pages/PrivacyPage'
 import AccountPage from './pages/AccountPage'
+import WeatherPage from './pages/WeatherPage'
 import { CrewIdentityModal } from './components/RoleComponents'
 import { supabase } from './lib/supabase'
 import { publishSharedVoyage, loadSharedVoyage, subscribeSharedVoyage } from './lib/sharedSync'
@@ -214,6 +215,7 @@ export default function App() {
         <Route path="/join" element={<JoinPage />} />
         <Route path="/privacy" element={<PrivacyPage />} />
         <Route path="/account" element={<AccountPage user={user} />} />
+        <Route path="/weather" element={<WeatherPage />} />
       </Routes>
     </Layout>
   )
