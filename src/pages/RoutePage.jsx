@@ -57,10 +57,10 @@ function RouteMap({ waypoints }) {
       maxZoom: 19,
     })
 
-    // "Námořní" (svět) = OSM + Esri Ocean batymetrie
-    const nauticalGroup = L.layerGroup([osmTiles(), oceanOverlay()]).addTo(map)
-    // "Evropské moře" = OSM + EMODnet detailní batymetrie + izobaty
-    const europeNauticalGroup = L.layerGroup([osmTiles(), emodnetBathy(), emodnetContours()])
+    // "Námořní" (svět) = OSM + Esri Ocean batymetrie (jen do zoomu 13)
+    const nauticalGroup = L.layerGroup([osmTiles(), oceanOverlay()])
+    // "Evropské moře" = OSM + EMODnet detailní batymetrie + izobaty (default)
+    const europeNauticalGroup = L.layerGroup([osmTiles(), emodnetBathy(), emodnetContours()]).addTo(map)
     // OpenTopoMap — topografie pobřeží (zdarma, žádný klíč)
     const topo = L.tileLayer('https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png', {
       attribution: '&copy; OpenTopoMap (CC-BY-SA), &copy; OpenStreetMap',
@@ -82,8 +82,8 @@ function RouteMap({ waypoints }) {
 
     L.control.layers(
       {
-        '🌊 Námořní (svět)': nauticalGroup,
         '🇪🇺 EMODnet (detail evropská moře)': europeNauticalGroup,
+        '🌊 Námořní (svět)': nauticalGroup,
         '⛰️ Topo pobřeží (OpenTopoMap)': topo,
         '🗺️ OpenStreetMap': osmGroup,
         '🛰️ Satelit': satellite,
