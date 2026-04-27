@@ -34,12 +34,16 @@ function RouteMap({ waypoints }) {
       maxZoom: 19,
     })
 
-    // Esri Ocean batymetrie — má data jen do zoomu 13, dál vrací placeholder dlaždici
-    // Použij maxZoom 13 + bounds-clipping: Leaflet pak vůbec nepošle request nad 13.
-    const oceanOverlay = () => L.tileLayer(
-      'https://services.arcgisonline.com/ArcGIS/rest/services/Ocean/World_Ocean_Base/MapServer/tile/{z}/{y}/{x}',
-      { attribution: 'Esri, GEBCO, NOAA', maxZoom: 13, opacity: 0.75 }
-    )
+    // GEBCO — oficiální globální batymetrie (mezinárodní oceánografická organizace)
+    // WMS se srozumitelnou hloubkovou palettou, žádné placeholder dlaždice
+    const gebcoOverlay = () => L.tileLayer.wms('https://wms.gebco.net/mapserv', {
+      layers: 'GEBCO_LATEST',
+      format: 'image/png',
+      transparent: true,
+      attribution: 'GEBCO Compilation Group',
+      opacity: 0.7,
+      maxZoom: 19,
+    })
 
     // EMODnet Bathymetry — vysoké rozlišení pro evropská moře (Jadran, Středomoří, Baltské, Severní)
     const emodnetBathy = () => L.tileLayer.wms('https://ows.emodnet-bathymetry.eu/wms', {
@@ -57,8 +61,8 @@ function RouteMap({ waypoints }) {
       maxZoom: 19,
     })
 
-    // "Námořní" (svět) = OSM + Esri Ocean batymetrie (jen do zoomu 13)
-    const nauticalGroup = L.layerGroup([osmTiles(), oceanOverlay()])
+    // "Námořní" (svět) = OSM + GEBCO batymetrie (globální, kompletní pokrytí)
+    const nauticalGroup = L.layerGroup([osmTiles(), gebcoOverlay()])
     // "Evropské moře" = OSM + EMODnet detailní batymetrie + izobaty (default)
     const europeNauticalGroup = L.layerGroup([osmTiles(), emodnetBathy(), emodnetContours()]).addTo(map)
     // OpenTopoMap — topografie pobřeží (zdarma, žádný klíč)
