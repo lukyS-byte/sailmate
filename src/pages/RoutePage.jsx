@@ -34,10 +34,11 @@ function RouteMap({ waypoints }) {
       maxZoom: 19,
     })
 
-    // Esri Ocean batymetrie — končí v zoomu 13, používá se jako overlay nad OSM
+    // Esri Ocean batymetrie — má data jen do zoomu 13, dál vrací placeholder dlaždici
+    // Použij maxZoom 13 + bounds-clipping: Leaflet pak vůbec nepošle request nad 13.
     const oceanOverlay = () => L.tileLayer(
       'https://services.arcgisonline.com/ArcGIS/rest/services/Ocean/World_Ocean_Base/MapServer/tile/{z}/{y}/{x}',
-      { attribution: 'Esri, GEBCO, NOAA', maxNativeZoom: 13, maxZoom: 19, opacity: 0.75 }
+      { attribution: 'Esri, GEBCO, NOAA', maxZoom: 13, opacity: 0.75 }
     )
 
     // EMODnet Bathymetry — vysoké rozlišení pro evropská moře (Jadran, Středomoří, Baltské, Severní)
