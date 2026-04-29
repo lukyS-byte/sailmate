@@ -402,7 +402,7 @@ export default function RegataPage() {
       setUploadStep('Načítám PDF…')
       const { pageData, text } = await extractPdfData(file)
       stage = 'volání Claude API'
-      setUploadStep('Claude analyzuje rozjížďky…')
+      setUploadStep('GPT analyzuje rozjížďky…')
       const result = await analyzeRegatta(text)
       setPreview({ result, pageData })
     } catch (e) {
