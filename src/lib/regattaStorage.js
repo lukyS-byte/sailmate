@@ -22,17 +22,19 @@ function base64ToBlob(b64, mime = 'image/jpeg') {
   return new Blob([arr], { type: mime })
 }
 
-// Nahraj jeden obrázek, vrať public URL.
+// Nahraj jeden obrázek přes server-side proxy (obchází Storage RLS).
 async function uploadOne(path, b64) {
-  const blob = base64ToBlob(b64)
-  const { error } = await supabase.storage.from(BUCKET).upload(path, blob, {
-    contentType: 'image/jpeg',
-    upsert: true,
-    cacheControl: '31536000',  // 1 rok — obsah je immutable (unique path per regatta)
+  const res = await fetch('/api/upload-regatta-page', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ path, base64: b64, mime: 'image/jpeg' }),
   })
-  if (error) throw error
-  const { data } = supabase.storage.from(BUCKET).getPublicUrl(path)
-  return data.publicUrl
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}))
+    throw new Error(err.error || `Upload ${res.status}`)
+  }
+  const { url } = await res.json()
+  return url
 }
 
 // Nahraj všechny stránky regatty. pageData = [{full, crop} | null, ...]
