@@ -392,7 +392,7 @@ export default function RegataPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [regattas.length, crewMode])
 
-  const handleFile = async (file, { skipAI = false } = {}) => {
+  const handleFile = async (file) => {
     if (!file || file.type !== 'application/pdf') { setError('Vyberte PDF soubor.'); return }
     setError('')
     setUploading(true)
@@ -401,41 +401,9 @@ export default function RegataPage() {
       stage = 'načítání PDF'
       setUploadStep('Načítám PDF…')
       const { pageData, text } = await extractPdfData(file)
-
-      let result
-      if (skipAI) {
-        result = {
-          event: file.name.replace(/\.pdf$/i, ''),
-          location: '',
-          dates: '',
-          summary: '',
-          races: [],
-          schedule: [],
-          info: [],
-        }
-      } else {
-        stage = 'volání Claude API'
-        setUploadStep('Claude analyzuje rozjížďky…')
-        try {
-          result = await analyzeRegatta(text)
-        } catch (aiErr) {
-          // AI selhala (klíč mrtvý/limit) → nabídni ruční režim
-          const cont = window.confirm(
-            `AI analýza selhala:\n${aiErr?.message || aiErr}\n\n` +
-            `Chceš PDF nahrát bez AI? Stránky se uloží jako obrázky a posádka si je bude moct prohlížet — jen nebudou automaticky vyplněné rozjížďky/program.`
-          )
-          if (!cont) throw aiErr
-          result = {
-            event: file.name.replace(/\.pdf$/i, ''),
-            location: '',
-            dates: '',
-            summary: '',
-            races: [],
-            schedule: [],
-            info: [],
-          }
-        }
-      }
+      stage = 'volání Claude API'
+      setUploadStep('Claude analyzuje rozjížďky…')
+      const result = await analyzeRegatta(text)
       setPreview({ result, pageData })
     } catch (e) {
       const detail = [
