@@ -56,13 +56,19 @@ KROK 2 — Vrať POUZE tento JSON (žádný úvod, žádné markdown bloky):
 }
 
 DŮLEŽITÁ PRAVIDLA:
+- NIKDY si nic nevymýšlej. Pokud info není v textu, dej null nebo prázdný řetězec.
 - NEUSTÁVEJ u několika prvních závodů — projdi CELÝ text a zahrni KAŽDOU rozjížďku
+- DNY (days[]):
+  * Použij POUZE dny, které jsou v dokumentu výslovně uvedené (program/harmonogram)
+  * date: "YYYY-MM-DD" musí pocházet z dokumentu (např. z hlavičky nebo programu) — pokud rok není explicitně uvedený, použij rok z "dates"
+  * dayName: česky, např. "Sobota 9. května" — den v týdnu MUSÍ odpovídat datu v daném roce. Když si nejsi 100% jistý dnem v týdnu, nepiš ho — dej jen "9. května".
+  * Pokud nemáš jistotu o datu konkrétní rozjížďky, NEPŘIŘAZUJ ji k žádnému dni — radši ji zařaď do dne s dayName "Termín neurčen"
 - Nezávodní dny: races = [], dayNotes = popis programu
 - Závodní dny: races = seznam, dayNotes = null
 - Pokud existují dvě varianty trasy (třídy), vyber delší/detailnější
-- pageIndex = 0-based index strany s MAPOU
+- pageIndex = 0-based index strany s MAPOU dané rozjížďky
 - practicalInfo: minimálně 3-5 témat pokud je v textu dostatek informací. Zachovej ČÍSELNÉ detaily (telefony, částky, časy, spoluúčasti).
-- VYNECHEJ ale témata která dávají smysl jen s obrázkem — typicky "Startovací čísla a vlajky", "Rozlišovací čísla lodí", seznamy vlajek/barev bez kontextu. Bez obrázku jsou to jen opakující se barvy a uživateli to nepomůže.
+- VYNECHEJ témata, která dávají smysl jen s obrázkem (vlajky, čísla lodí, barvy bez kontextu).
 - Nezkracuj — radši víc rozjížděk/témat než méně
 - Vrať POUZE validní JSON
 
@@ -76,8 +82,9 @@ ${text ? `TEXT DOKUMENTU:\n${text.slice(0, 40000)}` : ''}`
         'Authorization': `Bearer ${key}`,
       },
       body: JSON.stringify({
-        model: 'gpt-4o-mini',
+        model: 'gpt-4o',
         max_tokens: 16000,
+        temperature: 0.1,
         response_format: { type: 'json_object' },
         messages: [{
           role: 'user',
