@@ -47,61 +47,72 @@ export default function Layout({ children, user }) {
   }
 
   return (
-    <div className="min-h-screen bg-slate-50 dark:bg-slate-900">
+    <div className="min-h-screen">
       {!online && (
-        <div className="flex items-center justify-center gap-2 bg-amber-500 text-white text-xs font-medium py-1.5 px-4">
+        <div className="flex items-center justify-center gap-2 bg-gradient-to-r from-amber-500 to-amber-600 text-white text-xs font-medium py-1.5 px-4 shadow-sm">
           <WifiOff size={13} /> Offline — změny se uloží po obnovení připojení
         </div>
       )}
       {crewMode ? (
-        <div className="flex items-center justify-between px-4 py-2 bg-purple-50 dark:bg-purple-900/30 border-b border-purple-100 dark:border-purple-800 text-xs">
-          <span className="flex items-center gap-1.5 text-purple-700 dark:text-purple-200 font-medium">
-            <Users2 size={13} /> Posádka · kód {crewCode}
+        <div className="glass-bar flex items-center justify-between px-4 py-2.5 text-xs sticky top-0 z-40">
+          <span className="flex items-center gap-2 text-purple-700 dark:text-purple-200 font-semibold">
+            <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-gradient-to-br from-purple-500 to-purple-600 text-white shadow-sm">
+              <Users2 size={13} />
+            </span>
+            <span>Posádka · <span className="font-mono">{crewCode}</span></span>
           </span>
-          <div className="flex items-center gap-3 ml-2 flex-shrink-0">
+          <div className="flex items-center gap-1 flex-shrink-0">
             <button
               onClick={() => setDark(d => !d)}
-              className="text-purple-400 hover:text-purple-600 dark:hover:text-purple-200 transition-colors"
+              className="p-2 rounded-lg text-purple-500 hover:bg-purple-100 dark:hover:bg-purple-900/30 transition-colors"
+              title={dark ? 'Světlý režim' : 'Tmavý režim'}
             >
-              {dark ? <Sun size={14} /> : <Moon size={14} />}
+              {dark ? <Sun size={15} /> : <Moon size={15} />}
             </button>
             <button
               onClick={leaveCrew}
-              className="flex items-center gap-1 text-purple-500 hover:text-red-400 transition-colors"
+              className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-purple-600 dark:text-purple-300 hover:bg-red-50 dark:hover:bg-red-900/20 hover:text-red-500 transition-colors font-medium"
             >
               <LogOut size={13} /> Opustit
             </button>
           </div>
         </div>
       ) : user && (
-        <div className="flex items-center justify-between px-4 py-2 bg-white dark:bg-slate-800 border-b border-slate-100 dark:border-slate-700 text-xs text-slate-400">
-          <span className="truncate max-w-[180px]">{user.email}</span>
-          <div className="flex items-center gap-3 ml-2 flex-shrink-0">
+        <div className="glass-bar flex items-center justify-between px-4 py-2.5 text-xs sticky top-0 z-40">
+          <span className="flex items-center gap-2 text-slate-600 dark:text-slate-300 min-w-0">
+            <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-gradient-to-br from-ocean-400 to-ocean-500 text-white text-[10px] font-bold flex-shrink-0">
+              {(user.email?.[0] ?? '?').toUpperCase()}
+            </span>
+            <span className="truncate font-medium">{user.email}</span>
+          </span>
+          <div className="flex items-center gap-1 flex-shrink-0">
             <button
               onClick={() => setDark(d => !d)}
-              className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition-colors"
+              className="p-2 rounded-lg text-slate-500 hover:text-slate-700 hover:bg-slate-100 dark:hover:bg-slate-700 dark:hover:text-slate-200 transition-colors"
+              title={dark ? 'Světlý režim' : 'Tmavý režim'}
             >
-              {dark ? <Sun size={14} /> : <Moon size={14} />}
+              {dark ? <Sun size={15} /> : <Moon size={15} />}
             </button>
             <Link
               to="/account"
-              className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition-colors"
+              className="p-2 rounded-lg text-slate-500 hover:text-slate-700 hover:bg-slate-100 dark:hover:bg-slate-700 dark:hover:text-slate-200 transition-colors"
               title="Účet"
             >
-              <Settings size={14} />
+              <Settings size={15} />
             </Link>
             <button
               onClick={() => supabase.auth.signOut()}
-              className="flex items-center gap-1 text-slate-400 hover:text-red-400 transition-colors"
+              className="p-2 rounded-lg text-slate-500 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
+              title="Odhlásit"
             >
-              <LogOut size={13} /> Odhlásit
+              <LogOut size={15} />
             </button>
           </div>
         </div>
       )}
-      <main className="content-with-nav">
+      <main className="content-with-nav animate-fade-in">
         {children}
-        <div className="text-center text-[10px] text-slate-300 dark:text-slate-600 pt-4 pb-2 font-mono">
+        <div className="text-center text-[10px] text-slate-300 dark:text-slate-600 pt-6 pb-3 font-mono tracking-wider">
           build {typeof __BUILD_SHA__ !== 'undefined' ? __BUILD_SHA__ : 'dev'}
         </div>
       </main>
