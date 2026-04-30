@@ -91,6 +91,7 @@ function DayCard({ day, dayNumber, onUpdate, onDelete, tracks, voyageId }) {
   const [d, setD] = useState(day)
   const [gpsRowIdx, setGpsRowIdx] = useState(null)
   const [gpsErr, setGpsErr] = useState('')
+  const [confirmDelete, setConfirmDelete] = useState(false)
   const gps = useGPS()
 
   const save = (patch) => {
@@ -410,13 +411,30 @@ function DayCard({ day, dayNumber, onUpdate, onDelete, tracks, voyageId }) {
           </section>
 
           {/* Footer actions */}
-          <div className="flex justify-between pt-2 border-t border-slate-100 dark:border-slate-700">
-            <button
-              onClick={() => { if (confirm('Smazat celou stránku deníku?')) onDelete() }}
-              className="btn-ghost text-red-500 flex items-center gap-1.5 text-xs"
-            >
-              <Trash2 size={13} /> Smazat den
-            </button>
+          <div className="flex justify-between items-center pt-2 border-t border-slate-100 dark:border-slate-700">
+            {confirmDelete ? (
+              <div className="flex items-center gap-1.5">
+                <button
+                  onClick={() => { setConfirmDelete(false); onDelete() }}
+                  className="btn-danger text-xs px-3 py-1.5"
+                >
+                  <Trash2 size={12} /> Opravdu smazat
+                </button>
+                <button
+                  onClick={() => setConfirmDelete(false)}
+                  className="btn-ghost text-xs px-2 py-1.5"
+                >
+                  Zrušit
+                </button>
+              </div>
+            ) : (
+              <button
+                onClick={() => setConfirmDelete(true)}
+                className="btn-ghost text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 hover:text-red-600 flex items-center gap-1.5 text-xs"
+              >
+                <Trash2 size={13} /> Smazat den
+              </button>
+            )}
             <span className="text-[10px] text-slate-400 flex items-center gap-1">
               <Save size={11} /> Ukládá se automaticky
             </span>
