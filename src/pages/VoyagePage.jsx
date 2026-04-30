@@ -1,4 +1,5 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
+import QRCode from 'qrcode'
 import { Plus, Trash2, UserPlus, Anchor, Check, Share2, Copy, Pencil, Users2 } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import useStore from '../store/useStore'
@@ -160,6 +161,108 @@ function EditVoyageModal({ voyage, onClose }) {
   )
 }
 
+// ── Panel pozvánky posádky (kód, QR, sdílecí odkaz) ────────────────
+function CrewInvitePanel({ voyage, generateInviteCode, copyInviteLink, codeCopied, inviteError }) {
+  const [showQR, setShowQR] = useState(false)
+  const [qrDataUrl, setQrDataUrl] = useState('')
+
+  useEffect(() => {
+    if (!voyage?.inviteCode) { setQrDataUrl(''); return }
+    const url = `${window.location.origin}/join?code=${voyage.inviteCode}`
+    QRCode.toDataURL(url, {
+      width: 320,
+      margin: 1,
+      color: { dark: '#0c2340', light: '#ffffff' },
+    }).then(setQrDataUrl).catch(() => setQrDataUrl(''))
+  }, [voyage?.inviteCode])
+
+  return (
+    <div className="card space-y-3">
+      <div className="flex items-center gap-2">
+        <Users2 size={16} className="text-ocean-500" />
+        <p className="font-semibold text-sm text-slate-700 dark:text-slate-200">Pozvat posádku</p>
+      </div>
+
+      {!voyage.inviteCode ? (
+        <>
+          <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed">
+            Vygeneruj 6místný kód, sdílej ho s posádkou. Připojí se bez registrace —
+            zadají kód, vyberou se ze seznamu a jsou ve výpravě.
+          </p>
+          <button onClick={generateInviteCode} className="btn-ocean w-full text-sm">
+            Vygenerovat kód
+          </button>
+          {inviteError && (
+            <p className="text-xs text-red-500 bg-red-50 dark:bg-red-900/20 rounded-lg px-3 py-2">
+              {inviteError}
+            </p>
+          )}
+        </>
+      ) : (
+        <div className="space-y-3">
+          {/* Velký kód */}
+          <div className="bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-700/50 dark:to-slate-700 rounded-2xl p-5 text-center border border-slate-200/60 dark:border-slate-600/60">
+            <p className="text-[10px] uppercase tracking-widest text-slate-400 dark:text-slate-500 font-semibold mb-1.5">
+              Kód výpravy
+            </p>
+            <p className="text-3xl font-bold tracking-[0.3em] text-navy-800 dark:text-white">
+              {voyage.inviteCode}
+            </p>
+          </div>
+
+          {/* Akce: kopírovat / QR */}
+          <div className="grid grid-cols-2 gap-2">
+            <button
+              onClick={copyInviteLink}
+              className={`flex items-center justify-center gap-1.5 rounded-xl px-3 py-2.5 text-sm font-medium transition-all ${
+                codeCopied
+                  ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300'
+                  : 'btn-ocean'
+              }`}
+            >
+              {codeCopied ? <><Check size={14} /> Zkopírováno</> : <><Copy size={14} /> Odkaz</>}
+            </button>
+            <button
+              onClick={() => setShowQR((v) => !v)}
+              className="btn-secondary text-sm"
+            >
+              <QRIcon size={14} /> {showQR ? 'Skrýt QR' : 'QR kód'}
+            </button>
+          </div>
+
+          {/* QR kód */}
+          {showQR && qrDataUrl && (
+            <div className="flex flex-col items-center bg-white dark:bg-white rounded-2xl p-4 border border-slate-200">
+              <img src={qrDataUrl} alt="QR kód pro připojení" className="w-56 h-56" />
+              <p className="text-[11px] text-slate-500 mt-2 text-center">
+                Posádka naskenuje fotoaparátem mobilu — automaticky je nasměruje do výpravy.
+              </p>
+            </div>
+          )}
+
+          <p className="text-[11px] text-slate-400 dark:text-slate-500 text-center leading-relaxed">
+            Změny se synchronizují automaticky — posádka nemusí nic stahovat.
+          </p>
+        </div>
+      )}
+    </div>
+  )
+}
+
+// QR ikonka (4 čtverečky) přes lucide-react Square+Square... fallback inline svg
+function QRIcon({ size = 16 }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <rect x="3" y="3" width="7" height="7" rx="1" />
+      <rect x="14" y="3" width="7" height="7" rx="1" />
+      <rect x="3" y="14" width="7" height="7" rx="1" />
+      <rect x="14" y="14" width="3" height="3" />
+      <rect x="18" y="18" width="3" height="3" />
+      <rect x="14" y="14" width="3" height="3" />
+    </svg>
+  )
+}
+
 export default function VoyagePage() {
   const [showAddCrew, setShowAddCrew] = useState(false)
   const [showEdit, setShowEdit] = useState(false)
@@ -180,26 +283,19 @@ export default function VoyagePage() {
     navigate('/')
   }
 
+  const [inviteError, setInviteError] = useState('')
+
   const generateInviteCode = async () => {
     if (!voyage) return
+    setInviteError('')
     const code = Math.random().toString(36).substr(2, 6).toUpperCase()
     updateVoyage(voyage.id, { inviteCode: code })
-    // Publikuj řádek HNED (bez 1500ms debounce) ať posádka může zadat kód ihned.
+    // Publikuj řádek HNED (bez debounce) ať posádka může zadat kód ihned
     const snapshot = useStore.getState().getVoyageSnapshot(voyage.id)
     const uid = (await supabase.auth.getUser()).data.user?.id ?? null
-    console.log('[invite] publishing code', code, 'uid', uid, 'snapshot?', !!snapshot)
-    if (!snapshot) { alert('Chyba: snapshot výpravy je prázdný'); return }
-    const { data, error } = await publishSharedVoyage(code, snapshot, uid)
-    console.log('[invite] publish result', { data, error })
-    if (error) {
-      alert(`Publish failed: ${error.message || error.code || JSON.stringify(error)}`)
-      return
-    }
-    // Ověř že row v Supabase opravdu je
-    const { data: check, error: checkErr } = await supabase
-      .from('voyage_invites').select('code').eq('code', code).maybeSingle()
-    console.log('[invite] verify row', { check, checkErr })
-    if (!check) alert(`Kód ${code} se nezapsal do Supabase (RLS?).`)
+    if (!snapshot) { setInviteError('Snapshot výpravy je prázdný'); return }
+    const { error } = await publishSharedVoyage(code, snapshot, uid)
+    if (error) setInviteError(error.message || 'Publikace selhala')
   }
 
   const copyInviteLink = () => {
@@ -440,35 +536,13 @@ export default function VoyagePage() {
 
       {/* Crew invite — jen kapitán */}
       {!crewMode && (
-        <div className="card space-y-3">
-          <div className="flex items-center gap-2">
-            <Users2 size={16} className="text-ocean-500" />
-            <p className="font-semibold text-sm text-slate-700 dark:text-slate-200">Pozvat posádku</p>
-          </div>
-          {!voyage.inviteCode ? (
-            <button onClick={generateInviteCode} className="btn-ocean w-full text-sm">
-              Vygenerovat kód
-            </button>
-          ) : (
-            <div className="space-y-2">
-              <div className="flex items-center gap-2">
-                <div className="flex-1 bg-slate-50 dark:bg-slate-700 rounded-xl px-4 py-3 text-center">
-                  <p className="text-2xl font-bold tracking-widest text-navy-800 dark:text-white">{voyage.inviteCode}</p>
-                </div>
-                <button
-                  onClick={copyInviteLink}
-                  className={`flex items-center gap-1.5 rounded-xl px-4 py-3 text-sm font-medium transition-all ${codeCopied ? 'bg-emerald-100 text-emerald-700' : 'bg-ocean-500 text-white'}`}
-                >
-                  {codeCopied ? <><Check size={14} /> Zkopírováno</> : <><Copy size={14} /> Kopírovat odkaz</>}
-                </button>
-              </div>
-              <p className="text-xs text-slate-400 text-center leading-relaxed">
-                Posádka zadá kód na <span className="font-mono">/join</span> nebo klikne na odkaz.
-                Všechny změny se pak promítají automaticky — není potřeba žádné stahování.
-              </p>
-            </div>
-          )}
-        </div>
+        <CrewInvitePanel
+          voyage={voyage}
+          generateInviteCode={generateInviteCode}
+          copyInviteLink={copyInviteLink}
+          codeCopied={codeCopied}
+          inviteError={inviteError}
+        />
       )}
 
       {/* Delete voyage — jen kapitán */}

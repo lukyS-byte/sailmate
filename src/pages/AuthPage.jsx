@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Anchor, Mail, Lock, Loader2, KeyRound } from 'lucide-react'
+import { Anchor, Mail, Lock, Loader2, KeyRound, Users2, ArrowRight } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 
 export default function AuthPage() {
@@ -173,6 +173,30 @@ export default function AuthPage() {
               {mode === 'login' ? 'Přihlásit se' : 'Vytvořit účet'}
             </button>
           </form>
+        </div>
+
+        {/* Crew entry */}
+        <div className="mt-5 text-center">
+          <div className="flex items-center gap-3 mb-4">
+            <div className="flex-1 h-px bg-white/15" />
+            <span className="text-[11px] uppercase tracking-wider text-blue-200/70 font-semibold">nebo</span>
+            <div className="flex-1 h-px bg-white/15" />
+          </div>
+          <a
+            href="/join"
+            className="group inline-flex items-center justify-between gap-3 w-full bg-white/10 hover:bg-white/15 backdrop-blur-md border border-white/20 rounded-2xl px-5 py-3.5 text-white font-medium text-sm transition-all"
+          >
+            <span className="flex items-center gap-2.5">
+              <span className="inline-flex items-center justify-center w-9 h-9 rounded-xl bg-gradient-to-br from-purple-400 to-purple-600 shadow-lg shadow-purple-500/30">
+                <Users2 size={17} />
+              </span>
+              <span className="text-left">
+                <span className="block leading-tight">Vstoupit jako posádka</span>
+                <span className="block text-[11px] text-blue-200/80 leading-tight font-normal">stačí kód od kapitána</span>
+              </span>
+            </span>
+            <ArrowRight size={16} className="text-white/60 group-hover:text-white group-hover:translate-x-0.5 transition-all" />
+          </a>
         </div>
       </div>
     </div>
