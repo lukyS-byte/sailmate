@@ -67,7 +67,13 @@ DŮLEŽITÁ PRAVIDLA:
 - Závodní dny: races = seznam, dayNotes = null
 - Pokud existují dvě varianty trasy (třídy), vyber delší/detailnější
 - pageIndex = 0-based index strany s MAPOU dané rozjížďky
-- practicalInfo: minimálně 3-5 témat pokud je v textu dostatek informací. Zachovej ČÍSELNÉ detaily (telefony, částky, časy, spoluúčasti).
+- practicalInfo: 5-10 témat (klidně víc) — buď opravdu PODROBNÝ:
+  * U každého tématu zahrň VŠECHNY relevantní detaily z dokumentu, ne jen souhrn
+  * "content" má mít typicky 3-8 vět s konkrétními čísly, časy, jmény, postupy
+  * Zachovej PŘESNĚ: telefony, e-maily, částky v €/Kč, časy (HH:MM), VHF kanály, čísla bodů, GPS souřadnice, jména osob, názvy marin
+  * Když text uvádí postupy v krocích, zachovej je jako kroky
+  * Když je v textu výslovná podmínka/výjimka/pokuta, zmiň ji explicitně
+  * Při vícenásobných hodnotách (různé třídy lodí, různé scénáře) vyjmenuj všechny
 - VYNECHEJ témata, která dávají smysl jen s obrázkem (vlajky, čísla lodí, barvy bez kontextu).
 - Nezkracuj — radši víc rozjížděk/témat než méně
 - Vrať POUZE validní JSON
